@@ -1,0 +1,77 @@
+log_level: INFO
+n_bootstrap: 1_000
+plot_format: png
+
+weighting:
+  - weight_col: equal_task_weight
+    graph_snippet: Equally weighted tasks
+  - weight_col: invsqrt_task_weight
+    graph_snippet: Tasks weighted by 1/sqrt(family size)
+  - weight_col: null
+    graph_snippet: "None"
+
+stages:
+  filter_aird_runs:
+    task_families:
+      - ai_rd_fix_embedding
+      - ai_rd_nanogpt_chat_rl
+      - ai_rd_optimize_llm_foundry
+      - ai_rd_restricted_mlm
+      - ai_rd_rust_codecontests_inference
+      - ai_rd_small_scaling_law
+      - ai_rd_triton_cumsum
+
+  wrangle_bar_by_time_allocation:
+    time_limits: [1800, 7200, 28800]
+
+plots:
+  colors:
+    agent_aliases:
+      "Claude 3 Opus":
+        light: "#fe55b8"
+        base: "#c90076"
+        dark: "#8f0355"
+      "Claude 3.5 Sonnet (Old)":
+        light: "#df4166"
+        base: "#B61F43"
+        dark: "#80162F"
+      "Claude 3.5 Sonnet (New)":
+        light: "#da8f69"
+        base: "#CE6A38"
+        dark: "#924924"
+      "o1":
+        light: "#29F4a9"
+        base: "#05AC6F"
+        dark: "#04794E"
+      "o1-preview":
+        light: "#138Bdb"
+        base: "#0C5789"
+        dark: "#083C5F"
+      "GPT-4 0314":
+        light: "#9B6B9E"
+        base: "#744474"
+        dark: "#4D2D4D"
+      "GPT-4 Turbo":
+        light: "#45B3D6"
+        base: "#2B8FB0"
+        dark: "#1A5668"
+      "GPT-4o":
+        light: "#98D47E"
+        base: "#6AAD52"
+        dark: "#456F35"
+      human:
+        light: "#c9c9c9"
+        base: "#858585"
+        dark: "#484848"
+    default: "#000000"
+
+  legend_order:
+    - Claude 3.5 Sonnet (Old)
+    - Claude 3.5 Sonnet (New)
+    - Claude 3 Opus
+    - o1-preview
+    - o1
+    - GPT-4 0314
+    - GPT-4 Turbo
+    - GPT-4o
+    - Human 8-hour score

@@ -1,0 +1,1689 @@
+schema: '2.0'
+stages:
+  filter_out_partial_agents:
+    cmd: python -m src.filter_out_partial_agents --input-all-runs data/external/all_runs.jsonl
+      --output-runs-with-allowed-agents data/processed/runs/ga_agents.jsonl
+    deps:
+    - path: data/external/all_runs.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+    - path: src/filter_out_partial_agents.py
+      hash: md5
+      md5: 76e5c8cece6049529b643290e25ecddb
+      size: 1106
+    outs:
+    - path: data/processed/runs/ga_agents.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+  filter_aird_runs:
+    cmd: python -m src.filter_aird_runs --input-file data/external/all_runs.jsonl
+      --output-file data/processed/runs/aird.jsonl
+    deps:
+    - path: data/external/all_runs.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+    - path: src/filter_aird_runs.py
+      hash: md5
+      md5: f4ae81387bdd0a2d0f0a0ce005f7b49b
+      size: 950
+    params:
+      params.yaml:
+        stages.filter_aird_runs:
+          task_families:
+          - ai_rd_fix_embedding
+          - ai_rd_nanogpt_chat_rl
+          - ai_rd_optimize_llm_foundry
+          - ai_rd_restricted_mlm
+          - ai_rd_rust_codecontests_inference
+          - ai_rd_small_scaling_law
+          - ai_rd_triton_cumsum
+    outs:
+    - path: data/processed/runs/aird.jsonl
+      hash: md5
+      md5: 097e7c7f8ddb1e87cfd7754de4db4198
+      size: 864395
+  wrangle_bar_by_time_allocation:
+    cmd: python -m src.wrangle.bar_by_time_allocation --runs-file data/processed/runs/aird.jsonl
+      --wrangled-file data/processed/wrangled/bar_by_time_allocation.jsonl
+    deps:
+    - path: data/processed/runs/aird.jsonl
+      hash: md5
+      md5: 097e7c7f8ddb1e87cfd7754de4db4198
+      size: 864395
+    - path: src/stats/statistics.py
+      hash: md5
+      md5: 847fb366793e66de803cd15dcc98979f
+      size: 5832
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    - path: src/wrangle/bar_by_time_allocation.py
+      hash: md5
+      md5: e05abdc56a4fbf38a21710485e6cfe73
+      size: 3649
+    params:
+      params.yaml:
+        n_bootstrap: 1000
+        stages.wrangle_bar_by_time_allocation:
+          time_limits:
+          - 1800
+          - 7200
+          - 28800
+    outs:
+    - path: data/processed/wrangled/bar_by_time_allocation.jsonl
+      hash: md5
+      md5: 54ef8131990d5736a75defeee1de8915
+      size: 1900
+  wrangle_human_mean_of_percentiles:
+    cmd: python -m src.wrangle.human_mean_of_percentiles --interpolated-scores data/processed/runs/aird.jsonl
+      --output-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
+      --log-level INFO
+    deps:
+    - path: data/processed/runs/aird.jsonl
+      hash: md5
+      md5: 097e7c7f8ddb1e87cfd7754de4db4198
+      size: 864395
+    - path: src/wrangle/human_mean_of_percentiles.py
+      hash: md5
+      md5: a024a720ada5263e626c099205df1c0c
+      size: 2953
+    params:
+      params.yaml:
+        log_level: INFO
+    outs:
+    - path: data/processed/wrangled/human_mean_of_percentiles.jsonl
+      hash: md5
+      md5: f9b5a063844584c0b2b0dab13cbff3a6
+      size: 14883
+  wrangle_score_at_k:
+    cmd: python -m src.wrangle.score_at_k --input-score-at-k data/processed/runs/aird.jsonl
+      --output-score-at-k data/processed/wrangled/score_at_k.jsonl --n-bootstrap 1000
+      --time-limits 1800 7200
+    deps:
+    - path: data/processed/runs/aird.jsonl
+      hash: md5
+      md5: 097e7c7f8ddb1e87cfd7754de4db4198
+      size: 864395
+    - path: src/wrangle/score_at_k.py
+      hash: md5
+      md5: 5ce841ae81474880039fc2cd9925437e
+      size: 5353
+    params:
+      params.yaml:
+        log_level: INFO
+        n_bootstrap: 1000
+    outs:
+    - path: data/processed/wrangled/score_at_k.jsonl
+      hash: md5
+      md5: ec6172984d734002940eef8f7a65d20c
+      size: 6661
+  wrangle_logistic_regression@weighting0:
+    cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
+      --output-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --weighting equal_task_weight
+    deps:
+    - path: data/external/all_runs.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+    - path: src/wrangle/logistic.py
+      hash: md5
+      md5: 6a3ac7e602e694ef456335e0804c4a6f
+      size: 9042
+    outs:
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+  wrangle_logistic_regression@weighting1:
+    cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
+      --output-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --weighting invsqrt_task_weight
+    deps:
+    - path: data/external/all_runs.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+    - path: src/wrangle/logistic.py
+      hash: md5
+      md5: 6a3ac7e602e694ef456335e0804c4a6f
+      size: 9042
+    outs:
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+  wrangle_logistic_regression@weighting2:
+    cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
+      --output-file data/processed/wrangled/logistic_regression_None.csv --weighting
+      None
+    deps:
+    - path: data/external/all_runs.jsonl
+      hash: md5
+      md5: ce3655ee82fc30fddc53908c08d34756
+      size: 3243322
+    - path: src/wrangle/logistic.py
+      hash: md5
+      md5: 6a3ac7e602e694ef456335e0804c4a6f
+      size: 9042
+    outs:
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+  plot_bar_by_time_allocation:
+    cmd: python -m src.plot.bar_by_time_allocation --input data/processed/wrangled/bar_by_time_allocation.jsonl
+      --output plots/bar_by_time_allocation.png --plot-format png --log-level INFO
+    deps:
+    - path: data/processed/wrangled/bar_by_time_allocation.jsonl
+      hash: md5
+      md5: 54ef8131990d5736a75defeee1de8915
+      size: 1900
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/bar_by_time_allocation.py
+      hash: md5
+      md5: 959b7618cd3aeff07062e2de2bbae7b7
+      size: 5873
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/bar_by_time_allocation.png
+      hash: md5
+      md5: 98c527f0dfe18f6fb6d2d23120a034b5
+      size: 74223
+  plot_score_at_k:
+    cmd: python -m src.plot.score_at_k --input-score-at-k data/processed/wrangled/score_at_k.jsonl
+      --input-human-mean-of-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
+      --output-prefix plots/aird/score_at_k --plot-format png --log-level INFO
+    deps:
+    - path: data/processed/wrangled/human_mean_of_percentiles.jsonl
+      hash: md5
+      md5: f9b5a063844584c0b2b0dab13cbff3a6
+      size: 14883
+    - path: data/processed/wrangled/score_at_k.jsonl
+      hash: md5
+      md5: ec6172984d734002940eef8f7a65d20c
+      size: 6661
+    - path: src/plot/score_at_k.py
+      hash: md5
+      md5: ddc47dae2e17e4c7f02e9977879e2980
+      size: 7495
+    - path: src/stats/statistics.py
+      hash: md5
+      md5: 847fb366793e66de803cd15dcc98979f
+      size: 5832
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/aird/score_at_k_1800.png
+      hash: md5
+      md5: 7438e25dcf10a2407bed48caae4e33c2
+      size: 144237
+    - path: plots/aird/score_at_k_7200.png
+      hash: md5
+      md5: f1da7234bff6700fa2bd15e0f7c5e16e
+      size: 92008
+  plot_logistic_regression@weighting0-true-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/equal_task_weight-true-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2024-01-01
+      --subtitle "Equally weighted tasks"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/equal_task_weight-true-2024-01-01.png
+      hash: md5
+      md5: df95daced3a67de029cad4006150cb66
+      size: 75325
+  plot_logistic_regression@weighting0-true-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/equal_task_weight-true-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2023-03-13
+      --subtitle "Equally weighted tasks"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/equal_task_weight-true-2023-03-13.png
+      hash: md5
+      md5: abeaeab06d3a852a9dc0cc0bbe3a6372
+      size: 101129
+  plot_logistic_regression@weighting0-false-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/equal_task_weight-false-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2024-01-01
+      --subtitle "Equally weighted tasks"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/equal_task_weight-false-2024-01-01.png
+      hash: md5
+      md5: 7ceaf3fe0e4864a20403dfc759c9f596
+      size: 94817
+  plot_logistic_regression@weighting0-false-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/equal_task_weight-false-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2023-03-13
+      --subtitle "Equally weighted tasks"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/equal_task_weight-false-2023-03-13.png
+      hash: md5
+      md5: 1b5c3936e52126e992a2dc180a8e0b67
+      size: 95896
+  plot_logistic_regression@weighting1-true-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/invsqrt_task_weight-true-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2024-01-01
+      --subtitle "Tasks weighted by 1/sqrt(family size)"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/invsqrt_task_weight-true-2024-01-01.png
+      hash: md5
+      md5: a041bc5e32cfb2ef34a20ffdabd64c95
+      size: 77747
+  plot_logistic_regression@weighting1-true-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/invsqrt_task_weight-true-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2023-03-13
+      --subtitle "Tasks weighted by 1/sqrt(family size)"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/invsqrt_task_weight-true-2023-03-13.png
+      hash: md5
+      md5: 8ef987e5cd8e917605e62298de4108d0
+      size: 105616
+  plot_logistic_regression@weighting1-false-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/invsqrt_task_weight-false-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2024-01-01
+      --subtitle "Tasks weighted by 1/sqrt(family size)"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/invsqrt_task_weight-false-2024-01-01.png
+      hash: md5
+      md5: ebd6f739b62c3ae8b01af3e17a0b23c7
+      size: 98063
+  plot_logistic_regression@weighting1-false-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/invsqrt_task_weight-false-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2023-03-13
+      --subtitle "Tasks weighted by 1/sqrt(family size)"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/invsqrt_task_weight-false-2023-03-13.png
+      hash: md5
+      md5: 941d3bc18ce84470c3145971aee27566
+      size: 99367
+  plot_logistic_regression@weighting2-true-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_None.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/None-true-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2024-01-01
+      --subtitle "None"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/None-true-2024-01-01.png
+      hash: md5
+      md5: 914aa696ebd852ef635e030a644fe9c4
+      size: 66546
+  plot_logistic_regression@weighting2-true-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_None.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/None-true-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines true --after-date 2023-03-13
+      --subtitle "None"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/None-true-2023-03-13.png
+      hash: md5
+      md5: eabf1d5d28c4c4d655df132d2fdb5def
+      size: 94526
+  plot_logistic_regression@weighting2-false-2024-01-01:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_None.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/None-false-2024-01-01.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2024-01-01
+      --subtitle "None"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/None-false-2024-01-01.png
+      hash: md5
+      md5: 489e1d50c5caea00f1ec85fd35d0c9e9
+      size: 88154
+  plot_logistic_regression@weighting2-false-2023-03-13:
+    cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_None.csv
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/None-false-2023-03-13.png
+      --plot-format png --log-level INFO --trendlines false --after-date 2023-03-13
+      --subtitle "None"
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic.py
+      hash: md5
+      md5: 439fb89926fbb5a716e8faa50c50ec1e
+      size: 11376
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/None-false-2023-03-13.png
+      hash: md5
+      md5: b808cb6ddd44a36b2161fa39edc93505
+      size: 89572
+  plot_logistic_multiverse:
+    cmd: python -m src.plot.logistic_multiverse --input-file_prefix data/processed/wrangled/logistic_regression_
+      --release-dates data/external/release_dates.yaml --output-file plots/logistic/logistic_multiverse.png
+      --plot-format png --log-level INFO
+    deps:
+    - path: data/external/release_dates.yaml
+      hash: md5
+      md5: e2ac2e31c0ff008683d5094de2088005
+      size: 492
+    - path: data/processed/wrangled/
+      hash: md5
+      md5: d994b37b8acc4583ad69a4f75719b644.dir
+      size: 32435
+      nfiles: 6
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic_multiverse.py
+      hash: md5
+      md5: ce9c2788505b10c4011082153e59bd41
+      size: 7598
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic/logistic_multiverse.png
+      hash: md5
+      md5: b8b8c0e842cbc888e708faae5b8f4580
+      size: 111718
+  plot_logistic_individual@weighting0:
+    cmd: python -m src.plot.logistic_individual --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      --output-file plots/logistic_individual/equal_task_weight.png --plot-format
+      png --log-level INFO
+    deps:
+    - path: data/processed/wrangled/logistic_regression_equal_task_weight.csv
+      hash: md5
+      md5: 632f2989ac41ff9180c6cb324d2e7a91
+      size: 3009
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic_individual.py
+      hash: md5
+      md5: 4905b20c80a32f79f9d709323e928a91
+      size: 4065
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic_individual/equal_task_weight.png
+      hash: md5
+      md5: 47ade1deeb5e16905dfac95cf7a92194
+      size: 112693
+  plot_logistic_individual@weighting1:
+    cmd: python -m src.plot.logistic_individual --input-file data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      --output-file plots/logistic_individual/invsqrt_task_weight.png --plot-format
+      png --log-level INFO
+    deps:
+    - path: data/processed/wrangled/logistic_regression_invsqrt_task_weight.csv
+      hash: md5
+      md5: 3f9a460d01a97ebdf7b79e0fa8bef93d
+      size: 3026
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic_individual.py
+      hash: md5
+      md5: 4905b20c80a32f79f9d709323e928a91
+      size: 4065
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic_individual/invsqrt_task_weight.png
+      hash: md5
+      md5: 7205b42d84dd9ce5f3aa71e4b891c68e
+      size: 113265
+  plot_logistic_individual@weighting2:
+    cmd: python -m src.plot.logistic_individual --input-file data/processed/wrangled/logistic_regression_None.csv
+      --output-file plots/logistic_individual/None.png --plot-format png --log-level
+      INFO
+    deps:
+    - path: data/processed/wrangled/logistic_regression_None.csv
+      hash: md5
+      md5: b43b3b699ae98df9bfd6f329ee42bedd
+      size: 2956
+    - path: matplotlibrc
+      hash: md5
+      md5: e5c44785adee259a340f12544e2cb856
+      size: 526
+    - path: src/plot/logistic_individual.py
+      hash: md5
+      md5: 4905b20c80a32f79f9d709323e928a91
+      size: 4065
+    - path: src/utils/plots.py
+      hash: md5
+      md5: 195ac1fafc775931af08b9610cc0e681
+      size: 1295
+    params:
+      params.yaml:
+        log_level: INFO
+        plot_format: png
+        plots:
+          colors:
+            agent_aliases:
+              Claude 3 Opus:
+                light: '#fe55b8'
+                base: '#c90076'
+                dark: '#8f0355'
+              Claude 3.5 Sonnet (Old):
+                light: '#df4166'
+                base: '#B61F43'
+                dark: '#80162F'
+              Claude 3.5 Sonnet (New):
+                light: '#da8f69'
+                base: '#CE6A38'
+                dark: '#924924'
+              o1:
+                light: '#29F4a9'
+                base: '#05AC6F'
+                dark: '#04794E'
+              o1-preview:
+                light: '#138Bdb'
+                base: '#0C5789'
+                dark: '#083C5F'
+              GPT-4 0314:
+                light: '#9B6B9E'
+                base: '#744474'
+                dark: '#4D2D4D'
+              GPT-4 Turbo:
+                light: '#45B3D6'
+                base: '#2B8FB0'
+                dark: '#1A5668'
+              GPT-4o:
+                light: '#98D47E'
+                base: '#6AAD52'
+                dark: '#456F35'
+              human:
+                light: '#c9c9c9'
+                base: '#858585'
+                dark: '#484848'
+            default: '#000000'
+          legend_order:
+          - Claude 3.5 Sonnet (Old)
+          - Claude 3.5 Sonnet (New)
+          - Claude 3 Opus
+          - o1-preview
+          - o1
+          - GPT-4 0314
+          - GPT-4 Turbo
+          - GPT-4o
+          - Human 8-hour score
+    outs:
+    - path: plots/logistic_individual/None.png
+      hash: md5
+      md5: 0f37bc807590a0827375ebf5d79943f9
+      size: 128323

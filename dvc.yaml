@@ -1,0 +1,205 @@
+stages:
+  filter_out_partial_agents:
+    cmd: >-
+      python -m src.filter_out_partial_agents
+      --input-all-runs data/external/all_runs.jsonl
+      --output-runs-with-allowed-agents data/processed/runs/ga_agents.jsonl
+    deps:
+      - data/external/all_runs.jsonl
+      - src/filter_out_partial_agents.py
+    outs:
+      - data/processed/runs/ga_agents.jsonl
+
+  filter_aird_runs:
+    cmd: >-
+      python -m src.filter_aird_runs
+      --input-file data/external/all_runs.jsonl
+      --output-file data/processed/runs/aird.jsonl
+    deps:
+      - data/external/all_runs.jsonl
+      - src/filter_aird_runs.py
+    params:
+      - stages.filter_aird_runs
+    outs:
+      - data/processed/runs/aird.jsonl
+
+  # Wrangle
+  wrangle_bar_by_time_allocation:
+    cmd: >-
+      python -m src.wrangle.bar_by_time_allocation
+      --runs-file data/processed/runs/aird.jsonl
+      --wrangled-file data/processed/wrangled/bar_by_time_allocation.jsonl
+    deps:
+      - data/processed/runs/aird.jsonl
+      - src/utils/plots.py
+      - src/stats/statistics.py
+      - src/wrangle/bar_by_time_allocation.py
+    params:
+      - n_bootstrap
+      - stages.wrangle_bar_by_time_allocation
+    outs:
+      - data/processed/wrangled/bar_by_time_allocation.jsonl
+    desc: Compute mean scores and hierarchical confidence intervals for final time limit.
+
+  wrangle_human_mean_of_percentiles:
+    cmd: >-
+      python -m src.wrangle.human_mean_of_percentiles
+      --interpolated-scores data/processed/runs/aird.jsonl
+      --output-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
+      --log-level ${log_level}
+    deps:
+      - src/wrangle/human_mean_of_percentiles.py
+      - data/processed/runs/aird.jsonl
+    params:
+      - log_level
+    outs:
+      - data/processed/wrangled/human_mean_of_percentiles.jsonl
+    desc: Calculate per-task percentiles of human scores over time and their mean.
+
+  wrangle_score_at_k:
+    cmd: >-
+      python -m src.wrangle.score_at_k
+      --input-score-at-k data/processed/runs/aird.jsonl
+      --output-score-at-k data/processed/wrangled/score_at_k.jsonl
+      --n-bootstrap ${n_bootstrap}
+      --time-limits 1800 7200
+    deps:
+      - src/wrangle/score_at_k.py
+      - data/processed/runs/aird.jsonl
+    params:
+      - log_level
+      - n_bootstrap
+    outs:
+      - data/processed/wrangled/score_at_k.jsonl
+
+  wrangle_logistic_regression:
+    matrix:
+      weighting: ${weighting}
+    cmd: >-
+      python -m src.wrangle.logistic
+      --input-file data/external/all_runs.jsonl
+      --output-file data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+      --weighting ${item.weighting.weight_col}
+    deps:
+      - src/wrangle/logistic.py
+      - data/external/all_runs.jsonl
+    outs:
+      - data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+
+  # Plot
+
+  plot_bar_by_time_allocation:
+    cmd: >-
+      python -m src.plot.bar_by_time_allocation
+      --input data/processed/wrangled/bar_by_time_allocation.jsonl
+      --output plots/bar_by_time_allocation.${plot_format}
+      --plot-format ${plot_format}
+      --log-level ${log_level}
+    deps:
+      - data/processed/wrangled/bar_by_time_allocation.jsonl
+      - src/plot/bar_by_time_allocation.py
+      - src/utils/plots.py
+      - matplotlibrc
+    params:
+      - log_level
+      - plot_format
+      - plots
+    plots:
+      - plots/bar_by_time_allocation.${plot_format}
+    desc: Generate plot of mean scores for different time limits with confidence intervals.
+
+  plot_score_at_k:
+    cmd: >-
+      python -m src.plot.score_at_k
+      --input-score-at-k data/processed/wrangled/score_at_k.jsonl
+      --input-human-mean-of-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
+      --output-prefix plots/aird/score_at_k
+      --plot-format ${plot_format}
+      --log-level ${log_level}
+    deps:
+      - src/plot/score_at_k.py
+      - data/processed/wrangled/score_at_k.jsonl
+      - data/processed/wrangled/human_mean_of_percentiles.jsonl
+      - src/utils/plots.py
+      - src/stats/statistics.py
+    params:
+      - log_level
+      - plot_format
+      - plots
+    plots:
+      - plots/aird/score_at_k_1800.${plot_format}
+      - plots/aird/score_at_k_7200.${plot_format}
+    desc: Generate plot of score at k for different time limits.
+
+  plot_logistic_regression:
+    matrix:
+      weighting: ${weighting}
+      trendlines: [true, false]
+      after_date: ["2024-01-01", "2023-03-13"]
+    cmd: >-
+      python -m src.plot.logistic
+      --input-file data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+      --release-dates data/external/release_dates.yaml
+      --output-file plots/logistic/${item.weighting.weight_col}-${item.trendlines}-${item.after_date}.${plot_format}
+      --plot-format ${plot_format}
+      --log-level ${log_level}
+      --trendlines ${item.trendlines}
+      --after-date ${item.after_date}
+      --subtitle "${item.weighting.graph_snippet}"
+    deps:
+      - src/plot/logistic.py
+      - data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+      - src/utils/plots.py
+      - data/external/release_dates.yaml
+      - matplotlibrc
+    params:
+      - log_level
+      - plot_format
+      - plots
+    plots:
+      - plots/logistic/${item.weighting.weight_col}-${item.trendlines}-${item.after_date}.${plot_format}
+    desc: Generate plot of logistic regression results.
+
+  plot_logistic_multiverse:
+    cmd: >-
+      python -m src.plot.logistic_multiverse
+      --input-file_prefix data/processed/wrangled/logistic_regression_
+      --release-dates data/external/release_dates.yaml
+      --output-file plots/logistic/logistic_multiverse.${plot_format}
+      --plot-format ${plot_format}
+      --log-level ${log_level}
+    deps:
+      - src/plot/logistic_multiverse.py
+      - data/processed/wrangled/
+      - src/utils/plots.py
+      - data/external/release_dates.yaml
+      - matplotlibrc
+    params:
+      - log_level
+      - plot_format
+      - plots
+    plots:
+      - plots/logistic/logistic_multiverse.${plot_format}
+    desc: Generate plot of logistic regression results.
+
+  plot_logistic_individual:
+    matrix:
+      weighting: ${weighting}
+    cmd: >-
+      python -m src.plot.logistic_individual
+      --input-file data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+      --output-file plots/logistic_individual/${item.weighting.weight_col}.${plot_format}
+      --plot-format ${plot_format}
+      --log-level ${log_level}
+    deps:
+      - src/plot/logistic_individual.py
+      - data/processed/wrangled/logistic_regression_${item.weighting.weight_col}.csv
+      - src/utils/plots.py
+      - matplotlibrc
+    params:
+      - log_level
+      - plot_format
+      - plots
+    plots:
+      - plots/logistic_individual/${item.weighting.weight_col}.${plot_format}
+    desc: Generate plot of logistic regression results.
