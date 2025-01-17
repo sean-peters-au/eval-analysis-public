@@ -20,7 +20,9 @@ def _get_changed_plots(old_branch: str, new_branch: str) -> list[str]:
 def _setup_image_ref(
     branch_name: str, plot_path: str, plots_dir: Path, output_dir: Path
 ) -> str:
-    branch_plot = plots_dir / f"{branch_name}_{plot_path.replace('/', '_')}"
+    branch_plot = (
+        plots_dir / f"{branch_name.replace('/', '_')}_{plot_path.replace('/', '_')}"
+    )
     shutil.copy2(branch_plot, output_dir / branch_plot.name)
     return f"![](./{branch_plot.name})"
 
@@ -59,15 +61,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plots-dir",
         default="dvc_plots/static",
+        type=Path,
         help="Directory containing plot files",
     )
     parser.add_argument(
         "--output-dir",
+        type=Path,
         default="changed_plots",
         help="Output directory for changed plots summary",
     )
-    parser.add_argument("--old-branch", required=True, help="First branch name")
-    parser.add_argument("--new-branch", required=True, help="Second branch name")
+    parser.add_argument(
+        "--old-branch", type=str, required=True, help="First branch name"
+    )
+    parser.add_argument(
+        "--new-branch", type=str, required=True, help="Second branch name"
+    )
 
     args = parser.parse_args()
     main(args.plots_dir, args.output_dir, args.old_branch, args.new_branch)

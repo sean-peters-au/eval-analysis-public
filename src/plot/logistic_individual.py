@@ -36,21 +36,30 @@ def plot_logistic_regression(
     show_empirical_rates: bool = False,
 ) -> None:
     agent_summaries = agent_summaries[agent_summaries["agent"].isin(focus_agents)]
-    fig, ax = plt.subplots()
+
+    # Create figure and axis
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot logistic curves for each agent
     for i, (_, agent_info) in enumerate(agent_summaries.groupby("agent")):
         agent_color = src.utils.plots.get_agent_color(
             plot_params["colors"], agent_info.iloc[0]["agent"]
         )
         plot_logistic_function(ax, agent_info, agent_color)
 
+    ax.hlines(
+        0.5, ax.get_xlim()[0], ax.get_xlim()[1], color="gray", linestyle="--", alpha=0.5
+    )  # type: ignore[reportArgumentType]
+    # Add p50 reference lines if requested
     if show_example_p50:
         p50 = agent_summaries.loc[1, "50%"]
-        ax.hlines(0.5, 1, p50, color="gray", linestyle="--")  # type: ignore[reportArgumentType]
-        ax.vlines(p50, 0, 0.5, color="gray", linestyle="--")  # type: ignore[reportArgumentType]
-        ax.scatter(p50, 0.5, color="gray", marker="o")  # type: ignore[reportArgumentType]
+        ax.vlines(p50, 0, 0.5, color="gray", linestyle="--", alpha=0.5)  # type: ignore[reportArgumentType]
+        ax.scatter(p50, 0.5, color="gray", marker="o", alpha=0.8)  # type: ignore[reportArgumentType]
 
+    # Add empirical data points if requested
     if show_empirical_rates:
         time_buckets = [1, 4, 16, 64, 256, 960]
+
         for i, (_, agent_info) in enumerate(agent_summaries.groupby("agent")):
             agent = agent_info.iloc[0]["agent"]
             if agent not in [
@@ -62,14 +71,14 @@ def plot_logistic_regression(
                 continue
             agent_color = src.utils.plots.get_agent_color(plot_params["colors"], agent)
             for j in range(len(time_buckets) - 1):
-                start, end, rate = (
-                    time_buckets[j],
-                    time_buckets[j + 1],
-                    agent_info.iloc[0][f"{time_buckets[j]}-{time_buckets[j+1]} min"],
-                )
+                start = time_buckets[j]
+                end = time_buckets[j + 1]
+                rate = agent_info.iloc[0][f"{start}-{end} min"]
+
                 # ax.hlines(rate, start, end, color=colors[i], linestyle="--")
                 ax.scatter(np.sqrt(start * end), rate, color=agent_color, marker="o")
 
+    # Customize axis appearance
     ax.set_xscale("log")
     ax.set_xticks([1, 4, 15, 60, 4 * 60, 16 * 60])
     ax.set_xticklabels(["1 min", "4 min", "15 min", "1 hr", "4 hrs", "16 hrs"])
@@ -94,11 +103,13 @@ def main() -> None:
     )
 
     agent_summaries = pd.read_csv(args.input_file)
+    # plot_params = dvc.api.params_show("plot_logistic_regression")
     params = dvc.api.params_show(stages="plot_logistic_individual")
     focus_agents = [
         "Claude 3.5 Sonnet (New)",
         "Claude 3.5 Sonnet (Old)",
         "GPT-4 0314",
+        # "GPT-4 Turbo",
         "GPT-4o",
         "gpt-3.5-turbo-instruct",
         "o1-preview",

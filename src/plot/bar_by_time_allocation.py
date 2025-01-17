@@ -43,6 +43,8 @@ def plot_bar_by_time_allocation(
         else float("inf")
     )
 
+    logging.info(agent_data)
+
     time_limits = sorted(agent_data["time_limit"].unique())
     bar_width = 0.2
     bar_spacing = 0
@@ -58,6 +60,7 @@ def plot_bar_by_time_allocation(
     for i, time_limit in enumerate(time_limits):
         time_data = agent_data[agent_data["time_limit"] == time_limit]
         time_data = time_data.sort_values("sort_key")
+        print(time_data)
 
         for j, (_, row) in enumerate(time_data.iterrows()):
             x = group_starts[i] + j * (bar_width + bar_spacing)
@@ -65,6 +68,9 @@ def plot_bar_by_time_allocation(
                 [row["point_estimate"] - row["ci_lower"]],
                 [row["ci_upper"] - row["point_estimate"]],
             )
+            if not all(e >= 0 for es in y_err for e in es):
+                logging.warning(f"Negative error bars: {y_err} at {row['agent']}")
+                y_err = ([max(0, e) for e in y_err[0]], [max(0, e) for e in y_err[1]])
 
             color = src.utils.plots.get_agent_color(
                 plot_params["colors"], row["agent"], "base"

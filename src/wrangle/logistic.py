@@ -10,9 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
 
@@ -22,103 +19,48 @@ if TYPE_CHECKING:
 LogisticParams = namedtuple("LogisticParams", ["scale", "coef", "intercept"])
 
 
-class ScaledLogistic(nn.Module):
-    """
-    Represents logistic regression with a scaling parameter
-    y = alpha * sigmoid(theta^T x + b)
-    """
-
-    def __init__(self, input_dim: int) -> None:
-        super().__init__()
-        # We'll treat theta and a as learnable parameters.
-        # a is unconstrained in (-∞, +∞), so alpha = sigmoid(a) will be in [0,1].
-        self.coef = nn.Parameter(
-            -0.5 + 0.5 * torch.rand(input_dim, dtype=torch.float64)
-        )
-        self.a = nn.Parameter(
-            torch.zeros(1, dtype=torch.float64)
-        )  # initialize a at 0 => alpha=0.5
-        self.b = nn.Parameter(torch.zeros(1, dtype=torch.float64))  # initialize b at 0
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        scale = torch.sigmoid(self.a)
-        logits = torch.matmul(x, self.coef) + self.b
-        p_scaled = scale * torch.sigmoid(logits)
-        return p_scaled
-
-    def train(  # type: ignore[reportIncompatibleMethodOverride]
-        self,
-        X: torch.Tensor,
-        y: torch.Tensor,
-        sample_weight: torch.Tensor,
-        num_epochs: int = 5000,
-    ) -> LogisticParams:
-        sample_weight = sample_weight / sample_weight.mean()
-        criterion = nn.BCELoss(
-            weight=sample_weight
-        )  # binary cross-entropy for probabilities
-        optimizer = optim.Adam(self.parameters(), lr=0.01)
-
-        # Training loop
-        loss = None
-        for epoch in range(num_epochs):
-            optimizer.zero_grad()
-            # p_hat in [0,1]
-            p_hat = self(X)
-            loss = criterion(p_hat, y)
-            loss.backward()
-            optimizer.step()
-
-            # if epoch % 100 == 0:
-            #     print(f"Epoch {epoch:3d} | Loss: {loss.item():.4f}")
-
-        assert (
-            loss is not None and (loss < 0.8)
-        ), f"Something is wrong, loss is {loss:.2f}, worse than chance ({np.log(2):.2f})"
-
-        # Final parameters
-        with torch.no_grad():
-            scale = torch.sigmoid(self.a).item()
-            return LogisticParams(
-                scale=scale, coef=self.coef.item(), intercept=self.b.item()
-            )
-
-    @staticmethod
-    def get_x_for_quantile(
-        params: LogisticParams, quantile: float = 0.5
-    ) -> NDArray[Any]:
-        coef = params.coef
-        intercept = params.intercept
-        quantile = quantile / params.scale
-        ret = (np.log(quantile / (1 - quantile)) - intercept) / coef
-        return ret.item()
-
-    @staticmethod
-    def regression(
-        X: NDArray[Any], y: NDArray[Any], sample_weight: NDArray[Any]
-    ) -> LogisticParams:
-        model = ScaledLogistic(1)
-        params = model.train(
-            torch.tensor(X, dtype=torch.float64),
-            torch.tensor(y, dtype=torch.float64),
-            sample_weight=torch.tensor(sample_weight),
-        )
-        return params
-
-
-# %%
-
-
 def unscaled_regression(
-    X: NDArray[Any], y: NDArray[Any], sample_weight: NDArray[Any]
-) -> LogisticParams:
-    model = LogisticRegression()
+    X: NDArray[Any],
+    y: NDArray[Any],
+    sample_weight: NDArray[Any],
+    regularization: float = 0.01,
+) -> LogisticRegression:
+    # Assert y values are in [0,1]
+    assert np.all((y >= 0) & (y <= 1)), "y values must be in [0,1]"
+    original_weight_sum = np.sum(sample_weight)
+    original_average = np.average(y, weights=sample_weight)
+
+    # For any fractional y values, split into weighted 0s and 1s
+    fractional_mask = (y > 0) & (y < 1)
+    if np.any(fractional_mask):
+        X_frac = X[fractional_mask]
+        y_frac = y[fractional_mask]
+        w_frac = sample_weight[fractional_mask]
+
+        # Stack X twice for 0s and 1s
+        X_split = np.vstack([X_frac, X_frac])
+
+        # Create y array with 0s in first half, 1s in second half
+        y_split = np.zeros(2 * len(y_frac))
+        y_split[len(y_frac) :] = 1
+
+        # Weight the 0s by (1-y) and 1s by y
+        w_split = np.concatenate([(1 - y_frac) * w_frac, y_frac * w_frac])
+
+        # Combine with non-fractional values
+        X = np.vstack([X[~fractional_mask], X_split])
+        y = np.concatenate([y[~fractional_mask], y_split])
+        sample_weight = np.concatenate([sample_weight[~fractional_mask], w_split])
+        assert np.allclose(np.sum(sample_weight), original_weight_sum)
+        assert np.allclose(np.average(y, weights=sample_weight), original_average)
+
+    model = LogisticRegression(C=1 / regularization)
     model.fit(X, y, sample_weight=sample_weight)
-    return LogisticParams(
-        scale=1,
-        coef=model.coef_[0][0],
-        intercept=model.intercept_[0],  # type: ignore[reportIndexIssue]
-    )
+    return model
+
+
+def get_x_for_quantile(model: LogisticRegression, quantile: float) -> float:
+    return (np.log(quantile / (1 - quantile)) - model.intercept_[0]) / model.coef_[0][0]  # type: ignore
 
 
 def empirical_success_rates(
@@ -148,45 +90,57 @@ def empirical_success_rates(
     return pd.Series(empirical_rates, index=indices), average
 
 
-def get_accuracy(x: NDArray[Any], y: NDArray[Any], params: LogisticParams) -> float:
-    y_pred = params.scale * torch.sigmoid(
-        torch.matmul(
-            torch.tensor(x, dtype=torch.float64),
-            torch.tensor([params.coef], dtype=torch.float64),
-        )
-        + torch.tensor(params.intercept)
-    )
-    y_pred = y_pred.detach().numpy()
-    return np.mean((y_pred > 0.5) == y).astype(float)
+def get_accuracy(
+    x: NDArray[Any],
+    y: NDArray[Any],
+    model: LogisticRegression,
+) -> float:
+    return model.score(x, y)
+
+
+def get_bce_loss(
+    x: NDArray[Any],
+    y: NDArray[Any],
+    model: LogisticRegression,
+    weights: NDArray[Any],
+) -> float:
+    y_pred = model.predict_proba(x)[:, 1]
+
+    # Calculate weighted BCE loss
+    # can't use sklearn.metrics.log_loss because it doesn't support continuous y
+    epsilon = 1e-15  # small constant to avoid log(0)
+    y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
+    weights = weights / weights.mean()
+    bce = -weights * (y * np.log(y_pred) + (1 - y) * np.log(1 - y_pred))
+    return np.mean(bce).item()
 
 
 def agent_regression(
     x: NDArray[Any],
     y: NDArray[Any],
-    weights: NDArray[Any],
+    weights: NDArray[Any] | None,
     agent_name: str,
     method: str,
+    regularization: float = 0.01,
 ) -> pd.Series[Any]:
-    if method == "scaled":
-        regression = ScaledLogistic.regression
-    else:
-        regression = unscaled_regression
+    if method != "unscaled":
+        raise ValueError(f"Unknown method: {method}")
+    regression = unscaled_regression
 
-    print(f"Analyzing {agent_name}, method {method}")
+    logging.info(f"Analyzing {agent_name}, method {method}")
     time_buckets = [1, 4, 16, 64, 256, 960]
-    y = np.where(y > 0.9, 1, 0)
+    y = np.clip(y, 0, 1)
     x = np.log2(x).reshape(-1, 1)
     if weights is None:
         weights = np.ones_like(y, dtype=np.float64)
 
-    # print(x, y)
     empirical_rates, average = empirical_success_rates(x, y, time_buckets, weights)
 
     indices = [
         "scale",
         "coefficient",
         "intercept",
-        "r2",
+        "bce_loss",
         "20%",
         "50%",
         "50_full",
@@ -200,7 +154,7 @@ def agent_regression(
                 0,
                 -np.inf,
                 0,
-                1,
+                0,
                 0,
                 0,
                 0,
@@ -210,7 +164,7 @@ def agent_regression(
             ],
             index=indices,
         )._append(empirical_rates)  # type: ignore[reportCallIssue]
-    # Bootstrap to get confidence interval for p50
+    # get confidence interval for p50. TODO remove this, should be using bootstrap
     kf = KFold(n_splits=min(10, len(x)), shuffle=True, random_state=42)
     p50s = []
     for train_idx, _ in kf.split(x):
@@ -218,27 +172,33 @@ def agent_regression(
         y_train = y[train_idx]
         if len(np.unique(y_train)) < 2:
             continue
-        params = regression(x_train, y_train, sample_weight=weights[train_idx])
-        p50_boot = np.exp2(ScaledLogistic.get_x_for_quantile(params, 0.5))
+        params = regression(
+            x_train,
+            y_train,
+            sample_weight=weights[train_idx],
+            regularization=regularization,
+        )
+        p50_boot = np.exp2(get_x_for_quantile(params, 0.5))
         p50s.append(p50_boot)
     p50 = np.percentile(p50s, 50)
     p50low = np.percentile(p50s, 2.5)
     p50high = np.percentile(p50s, 97.5)
 
-    params = regression(x, y, sample_weight=weights)
-    if params.coef > 0:
-        print(f"Warning: {agent_name} has positive slope {params.coef}")
-    p50_full = np.exp2(ScaledLogistic.get_x_for_quantile(params, 0.5))
-    p20 = np.exp2(ScaledLogistic.get_x_for_quantile(params, 0.2))
+    model = regression(x, y, sample_weight=weights, regularization=regularization)
+    if model.coef_[0][0] > 0:
+        logging.warning(f"Warning: {agent_name} has positive slope {model.coef_[0][0]}")
+    p50_full = np.exp2(get_x_for_quantile(model, 0.5))
+    p20 = np.exp2(get_x_for_quantile(model, 0.2))
 
-    accuracy = get_accuracy(x, y, params)
+    bce_loss = get_bce_loss(x, y, model, weights)
+    print(type(bce_loss))
 
     return pd.Series(
         [
-            params.scale,
-            params.coef,
-            params.intercept,
-            accuracy,
+            1,
+            model.coef_[0][0],
+            model.intercept_[0],  # type: ignore
+            bce_loss,
             p20,
             p50,
             p50_full,
@@ -251,7 +211,11 @@ def agent_regression(
 
 
 def run_logistic_regression(
-    runs: pd.DataFrame, output_file: pathlib.Path, weighting: str, method: str
+    runs: pd.DataFrame,
+    output_file: pathlib.Path,
+    weighting: str,
+    method: str,
+    regularization: float = 0.01,
 ) -> None:
     weights_fn = lambda x: None if weighting == "None" else x[weighting].values  # noqa: E731
     # rename alias to agent
@@ -263,11 +227,14 @@ def run_logistic_regression(
             weights=weights_fn(x),  # type: ignore
             agent_name=x.name,  # type: ignore
             method=method,
+            regularization=regularization,
         )  # type: ignore
     )  # type: ignore
     # ungroup and turn into DataFrame
 
-    print(regressions)
+    logging.info(regressions)
+    logging.info(f"Mean BCE loss: {regressions.bce_loss.mean():.3f}")
+    output_file.parent.mkdir(exist_ok=True, parents=True)
     regressions.to_csv(output_file)
 
 
@@ -278,6 +245,7 @@ def main() -> None:
     parser.add_argument("--log-level", type=str, default="INFO")
     parser.add_argument("--weighting", type=str, required=True)
     parser.add_argument("--method", type=str, default="unscaled")
+    parser.add_argument("--regularization", type=float, default=0.01)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -290,8 +258,12 @@ def main() -> None:
     )
     logging.info("Loaded input data")
 
-    run_logistic_regression(runs, args.output_file, args.weighting, args.method)
+    run_logistic_regression(
+        runs, args.output_file, args.weighting, args.method, args.regularization
+    )
 
 
 if __name__ == "__main__":
     main()
+
+# %%

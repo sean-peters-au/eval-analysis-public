@@ -6,7 +6,7 @@ weighting:
   - weight_col: equal_task_weight
     graph_snippet: Equally weighted tasks
   - weight_col: invsqrt_task_weight
-    graph_snippet: Tasks weighted by 1/sqrt(family size)
+    graph_snippet: Tasks diversity-weighted (1/sqrt(n))
   - weight_col: null
     graph_snippet: "None"
 

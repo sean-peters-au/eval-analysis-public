@@ -1,37 +1,34 @@
-import pytest
-import torch
+from typing import Any
 
-from src.wrangle.logistic import ScaledLogistic
+import numpy as np
+import pytest
+
+from src.wrangle.logistic import unscaled_regression
 
 
 def synthetic_data(
     scale_true: float, coef_true: float, b_true: float, num_samples: int = 10000
-) -> tuple[torch.Tensor, torch.Tensor]:
-    torch.manual_seed(42)
-    X = torch.randn(num_samples, 1, dtype=torch.float64) * 5
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    np.random.seed(42)
+    X = np.random.randn(num_samples, 1) * 5
 
-    coef_true_tensor = torch.tensor([coef_true], dtype=torch.float64)
-    scale_true_tensor = torch.tensor(scale_true, dtype=torch.float64)
-    b_true_tensor = torch.tensor(b_true, dtype=torch.float64)
+    coef_array = np.array([coef_true])
+    scale_array = np.array(scale_true)
+    b_array = np.array(b_true)
 
-    logits = X @ coef_true_tensor + b_true_tensor
-    p = torch.sigmoid(logits)
-    p_scaled = scale_true_tensor * p
+    logits = X @ coef_array + b_array
+    p = 1 / (1 + np.exp(-logits))  # sigmoid
+    p_scaled = scale_array * p
     # Bernoulli draws
-    y = torch.bernoulli(p_scaled)  # shape (num_samples,)
+    y = np.random.binomial(n=1, p=p_scaled)  # shape (num_samples,)
     return X, y
 
 
-def test_logistic_scaled() -> None:
+def test_logistic_scaled_bernoulli() -> None:
     # Generate data
-    X, y = synthetic_data(0.5, -3.0, 0.0)
-    model = ScaledLogistic(1)
-    params = model.train(X, y, sample_weight=torch.ones_like(y), num_epochs=2000)
-
-    # Remove print statement or use pytest.logging
-    # print(params)
+    X, y = synthetic_data(1.0, -3.0, 0.0)
+    model = unscaled_regression(X, y, sample_weight=np.ones_like(y), regularization=0.1)
 
     # Use pytest's built-in assert or approx
-    assert pytest.approx(params.scale, abs=0.1) == 0.5
-    assert pytest.approx(params.coef, abs=0.1) == -3.0
-    assert pytest.approx(params.intercept, abs=0.1) == 0.0
+    assert model.coef_[0][0] == pytest.approx(-3.0, abs=0.1)
+    assert model.intercept_[0] == pytest.approx(0.0, abs=0.1)  # type: ignore
