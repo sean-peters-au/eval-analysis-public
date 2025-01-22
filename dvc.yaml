@@ -75,23 +75,27 @@ stages:
   wrangle_logistic_regression:
     matrix:
       weighting: ["equal_task_weight", "invsqrt_task_weight"]
+      categories: ["ftr"]
       regularization: [0.01, 0.1]
     cmd: >-
       python -m src.wrangle.logistic
       --input-file data/external/all_runs.jsonl
-      --output-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      --output-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_${item.categories}.csv
       --weighting ${item.weighting}
       --regularization ${item.regularization}
+      --bootstrap-file data/wrangled/bootstrap/${item.weighting}-${item.categories}-${item.regularization}.csv
+      --categories ${item.categories}
     deps:
       - src/wrangle/logistic.py
       - data/external/all_runs.jsonl
+      - data/wrangled/bootstrap/${item.weighting}-${item.categories}-${item.regularization}.csv
     outs:
-      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_${item.categories}.csv
 
   wrangle_bootstrap_logistic:
     matrix:
-      weighting: ["invsqrt_task_weight"]
-      categories: ["ftr", "fr", "br"]
+      weighting: ["equal_task_weight", "invsqrt_task_weight"]
+      categories: ["ftr"]
       regularization: [0.01, 0.1]
     cmd: >-
       python -m src.wrangle.bootstrap
@@ -118,7 +122,7 @@ stages:
       regularization: [0.1]
     cmd: >-
       python -m src.plot.bar_chart
-      --metrics-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      --metrics-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_ftr.csv
       --output-file plots/bar_chart/${item.weighting}.${plot_format}
       --plot-format ${plot_format}
       --log-level ${log_level}
@@ -127,7 +131,7 @@ stages:
       --pass-at-k-sampling ${item.pass_at_k_sampling}
       --params params.yaml:plots
     deps:
-      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_ftr.csv
       - src/plot/bar_chart.py
       - src/utils/plots.py
     params:
@@ -187,38 +191,39 @@ stages:
       categories: ["ftr"]
       regularization: [0.1]
       trendlines: [true, false]
+      include_task_distribution: ["full", "none"]
       after_date: ["2024-01-01", "2023-03-13"]
     cmd: >-
       python -m src.plot.logistic
-      --input-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
-      --bootstrap-file data/wrangled/bootstrap/${item.weighting}-${item.categories}-${item.regularization}.csv
+      --input-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_${item.categories}.csv
+      --runs-file data/external/all_runs.jsonl
       --release-dates data/external/release_dates.yaml
-      --output-file plots/logistic/${item.weighting}-${item.regularization}-${item.trendlines}-${item.after_date}.${plot_format}
-      --plot-format ${plot_format}
+      --output-file plots/logistic/${item.weighting}-${item.regularization}-${item.trendlines}-${item.categories}-${item.after_date}-distr_${item.include_task_distribution}.${plot_format}
       --log-level ${log_level}
       --trendlines ${item.trendlines}
       --after-date ${item.after_date}
       --weighting "${item.weighting}"
+      --include-task-distribution ${item.include_task_distribution}
     deps:
       - src/plot/logistic.py
-      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_${item.categories}.csv
       - src/utils/plots.py
       - data/external/release_dates.yaml
-      - data/wrangled/bootstrap/${item.weighting}-${item.categories}-${item.regularization}.csv
       - matplotlibrc
+      - data/external/all_runs.jsonl
     params:
       - log_level
       - plot_format
       - plots
       - weighting
     plots:
-      - plots/logistic/${item.weighting}-${item.regularization}-${item.trendlines}-${item.after_date}.${plot_format}
+      - plots/logistic/${item.weighting}-${item.regularization}-${item.trendlines}-${item.categories}-${item.after_date}-distr_${item.include_task_distribution}.${plot_format}
     desc: Generate plot of logistic regression results.
 
   plot_logistic_multiverse:
     cmd: >-
       python -m src.plot.logistic_multiverse
-      --input-file_prefix data/wrangled/logistic_regression_
+      --input-file-prefix data/wrangled/logistic_regression_
       --release-dates data/external/release_dates.yaml
       --output-file plots/logistic/logistic_multiverse.${plot_format}
       --metrics-file metrics/horizon_trend/multiverse.yaml
@@ -226,6 +231,7 @@ stages:
       --log-level ${log_level}
       --weightings "equal_task_weight,invsqrt_task_weight"
       --regularization "0.1,0.01"
+      --categories "ftr"
     deps:
       - src/plot/logistic_multiverse.py
       - src/plot/logistic.py # dependency on plot_trendline
@@ -244,17 +250,17 @@ stages:
 
   plot_logistic_individual:
     matrix:
-      weighting: ["equal_task_weight", "invsqrt_task_weight"]
-      regularization: [0.1, 0.01]
+      weighting: ["invsqrt_task_weight"]
+      regularization: [0.01, 0.1]
     cmd: >-
       python -m src.plot.logistic_individual
-      --input-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      --input-file data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_ftr.csv
       --output-file plots/logistic_individual/${item.weighting}-${item.regularization}.${plot_format}
       --plot-format ${plot_format}
       --log-level ${log_level}
     deps:
       - src/plot/logistic_individual.py
-      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}.csv
+      - data/wrangled/logistic_regression_${item.weighting}_${item.regularization}_ftr.csv
       - src/utils/plots.py
       - matplotlibrc
     params:
@@ -268,9 +274,9 @@ stages:
   plot_bootstrap_ci:
     matrix:
       weighting: ["invsqrt_task_weight"]
-      categories: ["ftr", "fr"]
+      categories: ["ftr"]
       after_date: ["2023-03-13", "2024-01-01"]
-      regularization: [0.01, 0.1]
+      regularization: [0.1]
     cmd: >-
       python -m src.plot.bootstrap_ci
       --input-file data/wrangled/bootstrap/${item.weighting}-${item.categories}-${item.regularization}.csv

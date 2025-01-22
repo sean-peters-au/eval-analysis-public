@@ -27,10 +27,10 @@ def plot_points_and_many_lines(
     regularization: str,
 ) -> list[dict[str, Any]]:
     # exclude agents with nan 50%
-    agent_summaries = agent_summaries[agent_summaries["50%"].notna()]
     logging.info(
         f"Excluded {len(agent_summaries) - len(agent_summaries[agent_summaries['50%'].notna()])} agents with nan 50%"
     )
+    agent_summaries = agent_summaries[agent_summaries["50%"].notna()]
     agent_summaries = agent_summaries[agent_summaries["agent"].isin(focus_agents)]
     logging.debug(agent_summaries)
 
@@ -41,10 +41,15 @@ def plot_points_and_many_lines(
     )  # clip because log scale makes 0 -> -inf
     agent_summaries.loc[:, "50_low"].clip(1, np.inf)
     agent_summaries.loc[:, "50_high"].clip(1, np.inf)
+    y = agent_summaries["50%"]
+    yerr = np.array(
+        [y - agent_summaries.loc[:, "50_low"], agent_summaries.loc[:, "50_high"] - y]
+    )
+    yerr = np.clip(yerr, 0, np.inf)
     ax.errorbar(
         agent_summaries["release_date"],
         agent_summaries["50%_clipped"],
-        yerr=(agent_summaries["50_high"] - agent_summaries["50_low"]) / 2,
+        yerr=yerr,
         fmt="o",
         markersize=0,  # invisible
         capsize=5,
@@ -92,7 +97,7 @@ def plot_points_and_many_lines(
     records = []
     for method in ["OLS", "WLS"]:
         dates_colors = [
-            ("2022-06-01", "blue"),
+            # ("2022-06-01", "blue"),
             ("2023-01-01", "blue"),
             ("2024-01-01", "red"),
         ]
@@ -186,7 +191,7 @@ def record_metrics(records: list[dict[str, Any]], metrics_file: pathlib.Path) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input-file_prefix", type=str, required=True)
+    parser.add_argument("--input-file-prefix", type=str, required=True)
     parser.add_argument("--release-dates", type=pathlib.Path, required=True)
     parser.add_argument("--output-file", type=pathlib.Path, required=True)
     parser.add_argument("--plot-format", type=str, default="png")
@@ -194,6 +199,7 @@ def main() -> None:
     parser.add_argument("--weightings", type=str, required=True)
     parser.add_argument("--regularizations", type=str, required=True)
     parser.add_argument("--metrics-file", type=pathlib.Path, required=True)
+    parser.add_argument("--categories", type=str, required=True)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -210,7 +216,8 @@ def main() -> None:
 
     for weighting, regularization in itertools.product(weightings, regularizations):
         agent_summaries = pd.read_csv(
-            args.input_file_prefix + f"{weighting}_{regularization}.csv"
+            args.input_file_prefix
+            + f"{weighting}_{regularization}_{args.categories}.csv"
         )
         logging.info(agent_summaries)
         release_dates = yaml.safe_load(args.release_dates.read_text())

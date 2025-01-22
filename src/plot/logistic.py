@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import pathlib
-from typing import Any, Optional, Sequence, cast
+from typing import Any, Sequence, cast
 
 import dvc.api
 import matplotlib.axes
@@ -22,36 +22,72 @@ from sklearn.linear_model import LinearRegression
 import src.utils.plots
 
 
+def plot_task_distribution(
+    ax: matplotlib.axes.Axes,
+    runs_df: pd.DataFrame,
+    weight_key: str | None = None,
+) -> None:
+    """Plot a vertical histogram of the human time estimates for each run."""
+
+    # Because we're plotting the distribution of tasks, equal_task_weight is equivalent to no weight
+    use_weighting = weight_key == "invsqrt_task_weight"
+
+    data = runs_df.groupby("task_id")["human_minutes"].first().to_numpy()
+
+    # Make sure we use the same size bins regardless of the range we're plotting
+    log_bins = np.arange(np.log10(0.5), np.log10(data.max()), 0.2)
+    bins = list(10**log_bins)
+
+    if use_weighting:
+        weights = runs_df.groupby("task_id")[weight_key].sum().to_numpy()
+        ax.hist(data, bins=bins, weights=weights, orientation="horizontal")
+        ax.set_xlabel("Number of tasks\n(Weighted)")
+        ax.set_xticks([])  # With weighting, absolute number of runs isn't meaningful
+    else:
+        ax.hist(data, bins=bins, orientation="horizontal")
+        ax.set_xlabel("Number of tasks")
+
+    ax.yaxis.set_label_position("right")
+    ax.set_ylabel("Human time-to-complete")
+    ax.set_yscale("log")
+    ax.set_yticks([])  # y ticks will be shown in main plot
+
+    ax.set_title("Task distribution", pad=10)
+
+
 def plot_horizon_graph(
     plot_params: src.utils.plots.PlotParams,
     agent_summaries: pd.DataFrame,
-    bootstrap_results: pd.DataFrame,
+    runs_df: pd.DataFrame | None,
     output_file: pathlib.Path,
     subtitle: str,
     focus_agents: Sequence[str],
     trendlines: bool = True,
     after_date: str = "2022-06-01",
+    include_task_distribution: str = "none",
+    weight_key: str | None = None,
 ) -> None:
     agent_summaries = agent_summaries[
         agent_summaries["agent"].isin(focus_agents)
     ].copy()
-    fig, ax = plt.subplots(figsize=(10, 7), constrained_layout=True)
+    if include_task_distribution != "none":
+        fig = plt.figure(figsize=(12, 6))
+        gs = fig.add_gridspec(1, 5, wspace=0.5)
+        ax = fig.add_subplot(gs[0, :4])
+        ax_hist = fig.add_subplot(gs[0, 4])
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax_hist = None
 
-    agent_summaries["50%_clipped"] = agent_summaries["50_full"].clip(
+    agent_summaries["50%_clipped"] = agent_summaries["50%"].clip(
         # np.finfo(float).eps, np.inf
         0.5,
         np.inf,
     )  # clip because log scale makes 0 -> -inf
 
-    bootstrap_results = bootstrap_results[focus_agents]
-    bootstrap_quantiles = bootstrap_results.quantile([0.1, 0.9]).T
-    bootstrap_quantiles.columns = ["50_low", "50_high"]
-    bootstrap_quantiles.index.name = "agent"
-    agent_summaries = agent_summaries.drop(columns=["50_low", "50_high"])
-    agent_summaries = agent_summaries.merge(bootstrap_quantiles, on="agent")
-    agent_summaries.loc[:, "50_low"].clip(1, np.inf)
-    agent_summaries.loc[:, "50_high"].clip(1, np.inf)
-    y = agent_summaries["50_full"]
+    agent_summaries.loc[:, "50_low"].clip(1 / 60, np.inf)
+    agent_summaries.loc[:, "50_high"].clip(1 / 60, np.inf)
+    y = agent_summaries["50%"]
     yerr = np.array(
         [y - agent_summaries.loc[:, "50_low"], agent_summaries.loc[:, "50_high"] - y]
     )
@@ -87,12 +123,18 @@ def plot_horizon_graph(
             float(mdates.date2num(pd.Timestamp("2025-03-01"))),
         )
 
+    annotations = []
     if trendlines:
-        plot_trendline(ax, agent_summaries, after=after_date, log_scale=True)
+        annotations.append(
+            plot_trendline(ax, agent_summaries, after=after_date, log_scale=True)
+        )
         if after_date != "2024-01-01":
-            plot_trendline(ax, agent_summaries, after=after_date, log_scale=False)
-
-            # plot_trendline_hyperbolic(ax, agent_summaries, after=after_date)
+            annotations.append(
+                plot_trendline(ax, agent_summaries, after=after_date, log_scale=False)
+            )
+            annotations.append(
+                plot_trendline_hyperbolic(ax, agent_summaries, after=after_date)
+            )
 
     src.utils.plots.log_y_axis(ax)
     ax.set_ylim(0.25, 8 * 60)
@@ -102,6 +144,22 @@ def plot_horizon_graph(
     )
     ax.set_xticks(xticks)
     ax.set_xticklabels(map(lambda x: x.strftime("%Y-%m-%d"), xticks))
+    if after_date == "2024-01-01":
+        ax.set_xbound(
+            pd.Timestamp("2023-01-01"),  # type: ignore[reportArgumentType]
+            pd.Timestamp("2025-03-01"),  # type: ignore[reportArgumentType]
+        )
+    ax.set_yscale("log")
+    yticks = [1, 2, 4, 8, 15, 30, 60, 120]
+    ylabels = ["1 min", "2 min", "4 min", "8 min", "15 min", "30 min", "1 hr", "2 hrs"]
+
+    ax.set_xlabel("Release Date")
+    # ax.set_xticks(
+    #     [
+    #         pd.Timestamp(after_date) + pd.Timedelta(weeks=- 52 + 13*n)
+    #         for n in range(0, 5)
+    #     ]
+    # )
 
     ax.set_ylabel("Human time-to-complete @ 50% chance of AI success")
     ax.set_title(f"Time horizon on well-defined tasks\n{subtitle}")
@@ -109,6 +167,45 @@ def plot_horizon_graph(
     # The graph is too busy if we have both trendlines and legend
     if not trendlines:
         src.utils.plots.create_sorted_legend(ax, plot_params["legend_order"])
+
+    if (
+        include_task_distribution != "none"
+        and runs_df is not None
+        and ax_hist is not None
+    ):
+        plot_task_distribution(ax_hist, runs_df, weight_key)
+
+    if include_task_distribution == "full" and ax_hist is not None:
+        # y limits are determined by the histogram
+        low, high = ax_hist.get_ylim()
+        ax.set_ylim(low, high)
+
+        # Add ticks for the rest of the distribution
+        hours = 4
+        while hours * 60 < high:
+            yticks.append(hours * 60)
+            ylabels.append(f"{hours} hrs")
+            hours *= 2
+    elif include_task_distribution == "clipped" and ax_hist is not None:
+        # y limits are determined by the main plot
+        ax_hist.set_ylim(ax.get_ylim())
+
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(ylabels)
+
+    # Lay the annotations we collected earlier, ensuring they don't overlap
+    padding = 10
+    line_height = 12
+    bbox = ax.get_window_extent()
+    y = (
+        (bbox.y1 - bbox.y0) * 72 / fig.dpi
+    )  # start at top-left corner of the plot, in axes points
+    y -= padding
+    for a in annotations:
+        ax.annotate(xy=(padding, y), xycoords="axes points", ha="left", va="top", **a)
+        n_lines = len(a["text"].split("\n"))
+        # next annotation will go below this one
+        y -= line_height * n_lines + padding
 
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     fig.savefig(output_file)
@@ -121,7 +218,7 @@ def fit_trendline(
     log_scale: bool = False,
     method: str = "OLS",
 ) -> tuple[LinearRegression, float]:
-    """Fit a trendline showing the relationship between release date and time horizon."""
+    """Plot a trendline showing the relationship between release date and time horizon."""
     agent_summaries = agent_summaries.sort_values("release_date")
     mask = agent_summaries["release_date"] >= pd.Timestamp(after).date()
 
@@ -155,7 +252,7 @@ def plot_trendline(
     annotate: bool = True,
     fit_color: str | None = None,
     plot_kwargs: dict[str, Any] = {},
-) -> Optional[float]:
+) -> dict[str, Any] | float | None:
     """Plot a trendline showing the relationship between release date and time horizon."""
     reg, score = fit_trendline(agent_summaries, after, log_scale, method)
 
@@ -177,27 +274,22 @@ def plot_trendline(
 
     fit_type = "Exponential" if log_scale else "Linear"
     annotation = f"{fit_type} fit\nr^2: {score:.2f}"
-    if log_scale:
+    if log_scale and doubling_time is not None:
         annotation += f"\n(Doubling time: {doubling_time:.0f} days)"
         annotation += "\n" + ("All data" if after == "0000-00-00" else f"{after}+ data")
     else:
         annotation += f"\n(Rate: +{reg.coef_[0]*365:.0f} minutes per year)"
 
-    ax.annotate(
-        annotation,
-        xy=(0.05, 0.95 if log_scale else 0.75),
-        xycoords="axes fraction",
-        ha="left",
-        va="top",
+    return dict(
+        text=annotation,
         color=fit_color,
         transform=ax.get_xaxis_transform(),
     )
-    return doubling_time
 
 
 def plot_trendline_hyperbolic(
     ax: matplotlib.axes.Axes, agent_summaries: pd.DataFrame, after: str
-) -> None:
+) -> dict[str, Any]:
     """Plot a trendline showing the relationship between release date and time horizon."""
 
     def hyperbolic_func(
@@ -257,12 +349,8 @@ def plot_trendline_hyperbolic(
     t_agi = first_release + pd.Timedelta(days=t_agi)
     annotation += f"\n(T_agi: {t_agi:%Y-%m-%d})"
 
-    ax.annotate(
-        annotation,
-        xy=(0.05, 0.55),
-        xycoords="axes fraction",
-        ha="left",
-        va="top",
+    return dict(
+        text=annotation,
         color=fit_color,
         transform=ax.get_xaxis_transform(),
     )
@@ -271,7 +359,6 @@ def plot_trendline_hyperbolic(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-file", type=pathlib.Path, required=True)
-    parser.add_argument("--bootstrap-file", type=pathlib.Path, required=True)
     parser.add_argument("--release-dates", type=pathlib.Path, required=True)
     parser.add_argument("--output-file", type=pathlib.Path, required=True)
     parser.add_argument("--weighting", type=str)
@@ -279,6 +366,8 @@ def main() -> None:
     parser.add_argument("--log-level", type=str, default="INFO")
     parser.add_argument("--trendlines", type=str, default="true")
     parser.add_argument("--after-date", type=str, default="2022-06-01")
+    parser.add_argument("--include-task-distribution", type=str, default="none")
+    parser.add_argument("--runs-file", type=pathlib.Path, required=False)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -287,7 +376,6 @@ def main() -> None:
     )
 
     agent_summaries = pd.read_csv(args.input_file)
-    bootstrap_results = pd.read_csv(args.bootstrap_file)
     release_dates = yaml.safe_load(args.release_dates.read_text())
     agent_summaries["release_date"] = agent_summaries["agent"].map(
         release_dates["date"]
@@ -312,15 +400,22 @@ def main() -> None:
     weighting = next(w for w in weighting_list if w["weight_col"] == args.weighting)
     subtitle = weighting["graph_snippet"]
 
+    if args.runs_file:
+        runs_df = pd.read_json(args.runs_file, lines=True)
+    else:
+        runs_df = None
+
     plot_horizon_graph(
         dvc.api.params_show(stages="plot_logistic_regression")["plots"],
         agent_summaries,
-        bootstrap_results,
-        args.output_file,
+        runs_df=runs_df,
+        output_file=args.output_file,
         focus_agents=focus_agents,
         trendlines=trendlines,
         after_date=args.after_date,
         subtitle=subtitle,
+        include_task_distribution=args.include_task_distribution,
+        weight_key=weighting["weight_col"],
     )
 
 

@@ -5,18 +5,14 @@ from __future__ import annotations
 import argparse
 import logging
 import pathlib
-from collections import namedtuple
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import KFold
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-
-LogisticParams = namedtuple("LogisticParams", ["scale", "coef", "intercept"])
 
 
 def unscaled_regression(
@@ -122,6 +118,7 @@ def agent_regression(
     agent_name: str,
     method: str,
     regularization: float = 0.01,
+    bootstrap_results: pd.DataFrame | None = None,
 ) -> pd.Series[Any]:
     if method != "unscaled":
         raise ValueError(f"Unknown method: {method}")
@@ -137,13 +134,10 @@ def agent_regression(
     empirical_rates, average = empirical_success_rates(x, y, time_buckets, weights)
 
     indices = [
-        "scale",
         "coefficient",
         "intercept",
         "bce_loss",
-        "20%",
         "50%",
-        "50_full",
         "50_low",
         "50_high",
         "average",
@@ -151,10 +145,7 @@ def agent_regression(
     if np.all(y == 0):
         return pd.Series(
             [
-                0,
                 -np.inf,
-                0,
-                0,
                 0,
                 0,
                 0,
@@ -164,46 +155,31 @@ def agent_regression(
             ],
             index=indices,
         )._append(empirical_rates)  # type: ignore[reportCallIssue]
-    # get confidence interval for p50. TODO remove this, should be using bootstrap
-    kf = KFold(n_splits=min(10, len(x)), shuffle=True, random_state=42)
-    p50s = []
-    for train_idx, _ in kf.split(x):
-        x_train = x[train_idx]
-        y_train = y[train_idx]
-        if len(np.unique(y_train)) < 2:
-            continue
-        params = regression(
-            x_train,
-            y_train,
-            sample_weight=weights[train_idx],
-            regularization=regularization,
-        )
-        p50_boot = np.exp2(get_x_for_quantile(params, 0.5))
-        p50s.append(p50_boot)
-    p50 = np.percentile(p50s, 50)
-    p50low = np.percentile(p50s, 2.5)
-    p50high = np.percentile(p50s, 97.5)
 
     model = regression(x, y, sample_weight=weights, regularization=regularization)
     if model.coef_[0][0] > 0:
         logging.warning(f"Warning: {agent_name} has positive slope {model.coef_[0][0]}")
     p50_full = np.exp2(get_x_for_quantile(model, 0.5))
-    p20 = np.exp2(get_x_for_quantile(model, 0.2))
+
+    # Get confidence intervals from bootstrap results if available
+    if bootstrap_results is not None and agent_name in bootstrap_results.columns:
+        p50_low = np.percentile(bootstrap_results[agent_name], 10)
+        p50_high = np.percentile(bootstrap_results[agent_name], 90)
+    else:
+        p50_low = float("nan")
+        p50_high = float("nan")
+        logging.warning(f"No bootstrap results for {agent_name}, using point estimate")
 
     bce_loss = get_bce_loss(x, y, model, weights)
-    print(type(bce_loss))
 
     return pd.Series(
         [
-            1,
             model.coef_[0][0],
             model.intercept_[0],  # type: ignore
             bce_loss,
-            p20,
-            p50,
             p50_full,
-            p50low,
-            p50high,
+            p50_low,
+            p50_high,
             average,
         ],
         index=indices,
@@ -216,10 +192,18 @@ def run_logistic_regression(
     weighting: str,
     method: str,
     regularization: float = 0.01,
+    bootstrap_file: pathlib.Path | None = None,
 ) -> None:
     weights_fn = lambda x: None if weighting == "None" else x[weighting].values  # noqa: E731
     # rename alias to agent
     runs.rename(columns={"alias": "agent"}, inplace=True)
+
+    # Load bootstrap results if available
+    bootstrap_results = None
+    if bootstrap_file is not None:
+        bootstrap_results = pd.read_csv(bootstrap_file)
+        logging.info(f"Loaded bootstrap results from {bootstrap_file}")
+
     regressions = runs.groupby(["agent"]).apply(
         lambda x: agent_regression(
             x["human_minutes"].values,  # type: ignore
@@ -228,13 +212,12 @@ def run_logistic_regression(
             agent_name=x.name,  # type: ignore
             method=method,
             regularization=regularization,
+            bootstrap_results=bootstrap_results,
         )  # type: ignore
     )  # type: ignore
-    # ungroup and turn into DataFrame
 
     logging.info(regressions)
     logging.info(f"Mean BCE loss: {regressions.bce_loss.mean():.3f}")
-    output_file.parent.mkdir(exist_ok=True, parents=True)
     regressions.to_csv(output_file)
 
 
@@ -246,6 +229,8 @@ def main() -> None:
     parser.add_argument("--weighting", type=str, required=True)
     parser.add_argument("--method", type=str, default="unscaled")
     parser.add_argument("--regularization", type=float, default=0.01)
+    parser.add_argument("--bootstrap-file", type=pathlib.Path)
+    parser.add_argument("--categories", type=str, default="ftr")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -259,7 +244,12 @@ def main() -> None:
     logging.info("Loaded input data")
 
     run_logistic_regression(
-        runs, args.output_file, args.weighting, args.method, args.regularization
+        runs,
+        args.output_file,
+        args.weighting,
+        args.method,
+        args.regularization,
+        args.bootstrap_file,
     )
 
 

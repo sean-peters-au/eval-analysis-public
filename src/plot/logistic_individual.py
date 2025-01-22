@@ -17,12 +17,8 @@ def plot_logistic_function(
     ax: matplotlib.axes.Axes, agent_info: pd.DataFrame, color: str
 ) -> None:
     x = np.logspace(0, np.log(32), 1000)
-    y = (
-        expit(
-            agent_info.iloc[0]["coefficient"] * np.log2(x)
-            + agent_info.iloc[0]["intercept"]
-        )
-        * agent_info.iloc[0]["scale"]
+    y = expit(
+        agent_info.iloc[0]["coefficient"] * np.log2(x) + agent_info.iloc[0]["intercept"]
     )
     ax.plot(x, y, label=agent_info.iloc[0]["agent"], color=color)
 
