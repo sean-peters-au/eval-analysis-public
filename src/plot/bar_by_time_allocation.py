@@ -1,5 +1,6 @@
 import argparse
 import logging
+import pathlib
 
 import dvc.api
 import matplotlib.lines
@@ -28,7 +29,7 @@ def _calculate_bar_positions(
 def plot_bar_by_time_allocation(
     plot_params: src.utils.plots.PlotParams,
     data: pd.DataFrame,
-    output_path: str,
+    output_path: pathlib.Path,
     plot_format: str = "png",
 ) -> None:
     fig, ax = plt.subplots()
@@ -155,6 +156,7 @@ def plot_bar_by_time_allocation(
     plt.tight_layout()
 
     if output_path:
+        output_path.parent.mkdir(exist_ok=True, parents=True)
         plt.savefig(output_path, format=plot_format, bbox_inches="tight")
         logging.info(f"Plot saved to {output_path}")
     else:
@@ -171,7 +173,7 @@ def main() -> None:
         help="Path to the processed data file (JSONL).",
     )
     parser.add_argument(
-        "--output", type=str, required=True, help="Path to save the plot."
+        "--output", type=pathlib.Path, required=True, help="Path to save the plot."
     )
     parser.add_argument(
         "--log-level",

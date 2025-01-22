@@ -81,6 +81,8 @@ def plot_logistic_regression(
     ax.set_xlabel("Time horizon")
     ax.set_ylabel("Probability of success")
     src.utils.plots.create_sorted_legend(ax, plot_params["legend_order"])
+
+    output_file.parent.mkdir(exist_ok=True, parents=True)
     fig.savefig(output_file)
     logging.info(f"Saved plot to {output_file}")
 

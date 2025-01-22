@@ -76,8 +76,8 @@ stages:
     outs:
     - path: data/processed/wrangled/bar_by_time_allocation.jsonl
       hash: md5
-      md5: 38e07898cd20f0f5e5a8fba8bcba2ac7
-      size: 1915
+      md5: bf896bbecf5943729c9ad493e8752613
+      size: 1917
   wrangle_human_mean_of_percentiles:
     cmd: python -m src.wrangle.human_mean_of_percentiles --interpolated-scores data/processed/runs/aird.jsonl
       --output-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
@@ -119,8 +119,8 @@ stages:
     outs:
     - path: data/processed/wrangled/score_at_k.jsonl
       hash: md5
-      md5: a10a72c2414244100fed47bf337845d4
-      size: 6660
+      md5: c2e706dbec1077cecf60a5f04146c00c
+      size: 6664
   wrangle_logistic_regression@weighting0:
     cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
       --output-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
@@ -181,16 +181,16 @@ stages:
     deps:
     - path: data/processed/wrangled/bar_by_time_allocation.jsonl
       hash: md5
-      md5: 38e07898cd20f0f5e5a8fba8bcba2ac7
-      size: 1915
+      md5: bf896bbecf5943729c9ad493e8752613
+      size: 1917
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
       size: 526
     - path: src/plot/bar_by_time_allocation.py
       hash: md5
-      md5: 78f2315b5e9c37585b9a30a9882642f9
-      size: 6158
+      md5: 58830ab90fff8b41d766f6f38df6bd78
+      size: 6253
     - path: src/utils/plots.py
       hash: md5
       md5: 170d412684a73975ccc7c28ad28abdf0
@@ -252,8 +252,8 @@ stages:
     outs:
     - path: plots/bar_by_time_allocation.png
       hash: md5
-      md5: f253a2c127d51f7cff6e5228d950b232
-      size: 75178
+      md5: be0418d9537d3cb3b8144349e013445d
+      size: 75160
   plot_score_at_k:
     cmd: python -m src.plot.score_at_k --input-score-at-k data/processed/wrangled/score_at_k.jsonl
       --input-human-mean-of-percentiles data/processed/wrangled/human_mean_of_percentiles.jsonl
@@ -265,12 +265,12 @@ stages:
       size: 14981
     - path: data/processed/wrangled/score_at_k.jsonl
       hash: md5
-      md5: a10a72c2414244100fed47bf337845d4
-      size: 6660
+      md5: c2e706dbec1077cecf60a5f04146c00c
+      size: 6664
     - path: src/plot/score_at_k.py
       hash: md5
-      md5: ddc47dae2e17e4c7f02e9977879e2980
-      size: 7495
+      md5: aa627fcac84a137df8a20906346f414f
+      size: 7553
     - path: src/stats/statistics.py
       hash: md5
       md5: 847fb366793e66de803cd15dcc98979f
@@ -336,12 +336,12 @@ stages:
     outs:
     - path: plots/aird/score_at_k_1800.png
       hash: md5
-      md5: d8c6f91e1a4158bdb01b1aebc7649648
-      size: 138551
+      md5: bf7864c1dc33985263e57a875e5695a5
+      size: 138929
     - path: plots/aird/score_at_k_7200.png
       hash: md5
-      md5: a753cf05016fea6a64042c6b96c6df17
-      size: 95952
+      md5: 5029f17c78359b756284919265d885a9
+      size: 95194
   plot_logistic_regression@weighting0-true-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
       --release-dates data/external/release_dates.yaml --output-file plots/logistic/equal_task_weight-true-2024-01-01.png
@@ -1375,9 +1375,9 @@ stages:
       size: 492
     - path: data/wrangled/
       hash: md5
-      md5: 1954086fc93a6890633f8e7a2f35d562.dir
-      size: 815834
-      nfiles: 16
+      md5: 13aaf8e822cb801521164707e5bb7772.dir
+      size: 404453
+      nfiles: 8
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -1447,12 +1447,12 @@ stages:
     outs:
     - path: metrics/horizon_trend/multiverse.yaml
       hash: md5
-      md5: 095124c73d05ce3a73d880777ff45a7a
-      size: 428
+      md5: 5cbbc52f3b692781994da91eaa585c23
+      size: 427
     - path: plots/logistic/logistic_multiverse.png
       hash: md5
-      md5: 6ddd49c855bad73c38d4950ba0f923b2
-      size: 181264
+      md5: e65c3ecba7a9cfee02711cc8b2a70a3f
+      size: 183691
   plot_logistic_individual@weighting0:
     cmd: python -m src.plot.logistic_individual --input-file data/processed/wrangled/logistic_regression_equal_task_weight.csv
       --output-file plots/logistic_individual/equal_task_weight.png --plot-format
@@ -1785,8 +1785,8 @@ stages:
     outs:
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.01.csv
       hash: md5
-      md5: c4354aaa43df46b7258d336dd0e8d826
-      size: 98127
+      md5: 1fddf7c9ca6be10df1a6623b9d64c6a1
+      size: 98195
   wrangle_bootstrap_logistic@invsqrt_task_weight-ftr-0.1:
     cmd: python -m src.wrangle.bootstrap --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv --weights-col
@@ -1807,8 +1807,8 @@ stages:
     outs:
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv
       hash: md5
-      md5: 7f2d4b60dd3633e2f4a1fb335a91eda6
-      size: 98652
+      md5: 6bde09d0718363ad154e191c5e249a87
+      size: 98281
   wrangle_bootstrap_logistic@invsqrt_task_weight-fr-0.01:
     cmd: python -m src.wrangle.bootstrap --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/bootstrap/invsqrt_task_weight-fr-0.01.csv --weights-col
@@ -1905,8 +1905,8 @@ stages:
     deps:
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: src/plot/bar_chart.py
       hash: md5
       md5: 3c03ff91c276ddc4adc755026be1f1af
@@ -1972,8 +1972,8 @@ stages:
     outs:
     - path: plots/bar_chart/invsqrt_task_weight.png
       hash: md5
-      md5: 4c1fc19477e3cb08bde7cef6d64892ab
-      size: 26305
+      md5: 9b9296c854005303128aa27c739b9675
+      size: 26292
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-true-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1.csv
       --bootstrap-file data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv --release-dates
@@ -2529,16 +2529,16 @@ stages:
     deps:
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
       size: 526
     - path: src/plot/logistic_individual.py
       hash: md5
-      md5: 57f8f64dfbf2a591cffef28d0872d1c7
-      size: 4292
+      md5: efdb9a2490e9cc8e4da9b3b69084e683
+      size: 4351
     - path: src/utils/plots.py
       hash: md5
       md5: 170d412684a73975ccc7c28ad28abdf0
@@ -2609,16 +2609,16 @@ stages:
     deps:
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.01_ftr.csv
       hash: md5
-      md5: a21052a89e37c01f0067235b7eb9681a
-      size: 2626
+      md5: 7eb9855f909716fec5043b36f7266fc3
+      size: 2628
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
       size: 526
     - path: src/plot/logistic_individual.py
       hash: md5
-      md5: 57f8f64dfbf2a591cffef28d0872d1c7
-      size: 4292
+      md5: efdb9a2490e9cc8e4da9b3b69084e683
+      size: 4351
     - path: src/utils/plots.py
       hash: md5
       md5: 170d412684a73975ccc7c28ad28abdf0
@@ -2775,8 +2775,8 @@ stages:
       size: 492
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv
       hash: md5
-      md5: 7f2d4b60dd3633e2f4a1fb335a91eda6
-      size: 98652
+      md5: 6bde09d0718363ad154e191c5e249a87
+      size: 98281
     - path: src/plot/bootstrap_ci.py
       hash: md5
       md5: 504bce9715d04b9306ad4a17d2e8bb00
@@ -2842,8 +2842,8 @@ stages:
     outs:
     - path: plots/bootstrap/invsqrt_task_weight-ftr-2023-03-13-0.1.png
       hash: md5
-      md5: 6f68d86cf5f1ef8680a3cd563aaa3000
-      size: 361931
+      md5: 51a1e9ba8a52416186872ad234688a30
+      size: 357128
   plot_bootstrap_ci@invsqrt_task_weight-ftr-2024-01-01-0.01:
     cmd: python -m src.plot.bootstrap_ci --input-file data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.01.csv
       --release-dates data/external/release_dates.yaml --output-file plots/bootstrap/invsqrt_task_weight-ftr-2024-01-01-0.01.png
@@ -2937,8 +2937,8 @@ stages:
       size: 492
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv
       hash: md5
-      md5: 7f2d4b60dd3633e2f4a1fb335a91eda6
-      size: 98652
+      md5: 6bde09d0718363ad154e191c5e249a87
+      size: 98281
     - path: src/plot/bootstrap_ci.py
       hash: md5
       md5: 504bce9715d04b9306ad4a17d2e8bb00
@@ -3004,8 +3004,8 @@ stages:
     outs:
     - path: plots/bootstrap/invsqrt_task_weight-ftr-2024-01-01-0.1.png
       hash: md5
-      md5: 777b57f42ea44ee6ac9aedba481c9e63
-      size: 317372
+      md5: d2b43690365dddfd612f9420a86ea168
+      size: 308039
   plot_bootstrap_ci@invsqrt_task_weight-fr-2023-03-13-0.01:
     cmd: python -m src.plot.bootstrap_ci --input-file data/wrangled/bootstrap/invsqrt_task_weight-fr-0.01.csv
       --release-dates data/external/release_dates.yaml --output-file plots/bootstrap/invsqrt_task_weight-fr-2023-03-13-0.01.png
@@ -3350,8 +3350,8 @@ stages:
     outs:
     - path: data/wrangled/bootstrap/equal_task_weight-ftr-0.01.csv
       hash: md5
-      md5: 4eeacfc84bcf17c7d893610d77e34f70
-      size: 98390
+      md5: af898f6357a8872b26fa3e5ea913ab3b
+      size: 98865
   wrangle_logistic_regression@equal_task_weight-ftr-0.01:
     cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/logistic_regression_equal_task_weight_0.01_ftr.csv
@@ -3364,8 +3364,8 @@ stages:
       size: 3243344
     - path: data/wrangled/bootstrap/equal_task_weight-ftr-0.01.csv
       hash: md5
-      md5: 4eeacfc84bcf17c7d893610d77e34f70
-      size: 98390
+      md5: af898f6357a8872b26fa3e5ea913ab3b
+      size: 98865
     - path: src/wrangle/logistic.py
       hash: md5
       md5: a80eaa072fcd226ab4caca5464857e64
@@ -3373,8 +3373,8 @@ stages:
     outs:
     - path: data/wrangled/logistic_regression_equal_task_weight_0.01_ftr.csv
       hash: md5
-      md5: e659bafb717f1d8ff5aa0ea68cfc569f
-      size: 2606
+      md5: 6efb2569a60bdfc764d1544f8c62c7bc
+      size: 2609
   wrangle_bootstrap_logistic@equal_task_weight-ftr-0.1:
     cmd: python -m src.wrangle.bootstrap --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/bootstrap/equal_task_weight-ftr-0.1.csv --weights-col
@@ -3395,8 +3395,8 @@ stages:
     outs:
     - path: data/wrangled/bootstrap/equal_task_weight-ftr-0.1.csv
       hash: md5
-      md5: e072c36c6b14e35a650608da9abd6685
-      size: 97927
+      md5: b12e9f47c29d577ca0f00b038575956e
+      size: 98638
   wrangle_logistic_regression@equal_task_weight-ftr-0.1:
     cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/logistic_regression_equal_task_weight_0.1_ftr.csv
@@ -3409,8 +3409,8 @@ stages:
       size: 3243344
     - path: data/wrangled/bootstrap/equal_task_weight-ftr-0.1.csv
       hash: md5
-      md5: e072c36c6b14e35a650608da9abd6685
-      size: 97927
+      md5: b12e9f47c29d577ca0f00b038575956e
+      size: 98638
     - path: src/wrangle/logistic.py
       hash: md5
       md5: a80eaa072fcd226ab4caca5464857e64
@@ -3418,8 +3418,8 @@ stages:
     outs:
     - path: data/wrangled/logistic_regression_equal_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a0374954b3ce86472a8ea9534355c3b6
-      size: 2611
+      md5: ca92c92c2a4ce1f64183ab0d18132966
+      size: 2607
   wrangle_logistic_regression@invsqrt_task_weight-ftr-0.01:
     cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/logistic_regression_invsqrt_task_weight_0.01_ftr.csv
@@ -3432,8 +3432,8 @@ stages:
       size: 3243344
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.01.csv
       hash: md5
-      md5: c4354aaa43df46b7258d336dd0e8d826
-      size: 98127
+      md5: 1fddf7c9ca6be10df1a6623b9d64c6a1
+      size: 98195
     - path: src/wrangle/logistic.py
       hash: md5
       md5: a80eaa072fcd226ab4caca5464857e64
@@ -3441,8 +3441,8 @@ stages:
     outs:
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.01_ftr.csv
       hash: md5
-      md5: a21052a89e37c01f0067235b7eb9681a
-      size: 2626
+      md5: 7eb9855f909716fec5043b36f7266fc3
+      size: 2628
   wrangle_logistic_regression@invsqrt_task_weight-ftr-0.1:
     cmd: python -m src.wrangle.logistic --input-file data/external/all_runs.jsonl
       --output-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
@@ -3455,8 +3455,8 @@ stages:
       size: 3243344
     - path: data/wrangled/bootstrap/invsqrt_task_weight-ftr-0.1.csv
       hash: md5
-      md5: 7f2d4b60dd3633e2f4a1fb335a91eda6
-      size: 98652
+      md5: 6bde09d0718363ad154e191c5e249a87
+      size: 98281
     - path: src/wrangle/logistic.py
       hash: md5
       md5: a80eaa072fcd226ab4caca5464857e64
@@ -3464,8 +3464,8 @@ stages:
     outs:
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-true-full-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3483,8 +3483,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -3561,8 +3561,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-true-ftr-2024-01-01-distr_full.png
       hash: md5
-      md5: a6d2286082b0e4b6f3b02a518d169567
-      size: 115051
+      md5: 6c377480ba05b4d9d1b756d4c5691c71
+      size: 114999
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-true-full-2023-03-13:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3580,8 +3580,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -3658,8 +3658,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-true-ftr-2023-03-13-distr_full.png
       hash: md5
-      md5: 526e74b0fb089e9af864da98032676c1
-      size: 143139
+      md5: e6ce8c768172a5e30a384b09b715aa3f
+      size: 143169
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-true-none-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3677,8 +3677,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -3755,8 +3755,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-true-ftr-2024-01-01-distr_none.png
       hash: md5
-      md5: 563ea8f62da1741d08a49579bc11bdf8
-      size: 89062
+      md5: 5a12fdc2f3a3438419e4639542efc73d
+      size: 89086
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-true-none-2023-03-13:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3774,8 +3774,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -3852,8 +3852,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-true-ftr-2023-03-13-distr_none.png
       hash: md5
-      md5: 2cd035a9d2338b81d3c3c4fbd4f9c4ed
-      size: 119056
+      md5: a701485afcdb01989b69cdd7fca86678
+      size: 119212
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-false-full-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3871,8 +3871,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -3949,8 +3949,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-false-ftr-2024-01-01-distr_full.png
       hash: md5
-      md5: 056a33e342e4dde8c375809bc3701c61
-      size: 129951
+      md5: c66a30fa7b3842728a002ba0a2276e73
+      size: 129832
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-false-full-2023-03-13:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -3968,8 +3968,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -4046,8 +4046,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-false-ftr-2023-03-13-distr_full.png
       hash: md5
-      md5: 8966a785b30bddae1925f5c05bd5df1b
-      size: 130527
+      md5: df3224a702e105d0bd609eac465b3076
+      size: 130407
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-false-none-2024-01-01:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -4065,8 +4065,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -4143,8 +4143,8 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-false-ftr-2024-01-01-distr_none.png
       hash: md5
-      md5: 76f64b651347cf7febb20f025cec760a
-      size: 103206
+      md5: 83250ff4c06dd0b177f700aa567e62c1
+      size: 103230
   plot_logistic_regression@invsqrt_task_weight-ftr-0.1-false-none-2023-03-13:
     cmd: python -m src.plot.logistic --input-file data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       --runs-file data/external/all_runs.jsonl --release-dates data/external/release_dates.yaml
@@ -4162,8 +4162,8 @@ stages:
       size: 492
     - path: data/wrangled/logistic_regression_invsqrt_task_weight_0.1_ftr.csv
       hash: md5
-      md5: a625d7a43eb913aa5662699656f708d5
-      size: 2635
+      md5: 0df4f8f60165fd24969077dfb409736a
+      size: 2630
     - path: matplotlibrc
       hash: md5
       md5: e5c44785adee259a340f12544e2cb856
@@ -4240,5 +4240,5 @@ stages:
     outs:
     - path: plots/logistic/invsqrt_task_weight-0.1-false-ftr-2023-03-13-distr_none.png
       hash: md5
-      md5: 10495acec47b2d131f96732fbf497d92
-      size: 103814
+      md5: f79ac0124398983c9efd736e2bbd813c
+      size: 103754
