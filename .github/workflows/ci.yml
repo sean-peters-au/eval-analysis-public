@@ -107,10 +107,6 @@ jobs:
           dvc remote modify --local s3 access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           dvc remote modify --local s3 secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
-          dvc remote add --global task-meta-s3 s3://production-task-meta
-          dvc remote modify --global task-meta-s3 access_key_id "${{ secrets.TASK_META_AWS_ACCESS_KEY_ID }}"
-          dvc remote modify --global task-meta-s3 secret_access_key "${{ secrets.TASK_META_AWS_SECRET_ACCESS_KEY }}"
-
       - name: Run check pipelines
         run: |-
           set -o pipefail
