@@ -1,11 +1,8 @@
 name: Sync data from eval-pipeline
 
 on:
-  pull_request:
-
-# TODO XXX replace with
-#  push:
-#   branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   sync-data:

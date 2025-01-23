@@ -1,5 +1,5 @@
 {
-  "name": "public-plots dev",
+  "name": "eval-analysis-public dev",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -11,7 +11,7 @@
   },
   "mounts": [
     {
-      "source": "public-plots-home",
+      "source": "eval-analysis-public-home",
       "target": "/home/metr",
       "type": "volume"
     },
@@ -22,8 +22,8 @@
     }
   ],
   "runArgs": [
-    "--name=public-plots-dev",
-    "--hostname=public-plots",
+    "--name=eval-analysis-public-dev",
+    "--hostname=eval-analysis-public",
     "--dns-search=koi-moth.ts.net"
   ],
   "customizations": {
