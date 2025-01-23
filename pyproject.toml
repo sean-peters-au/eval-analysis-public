@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "public-plots"
+name = "eval-analysis-public"
 version = "0.1.0"
 description = ""
 authors = ["Lucas Sato <lucas@metr.org>"]

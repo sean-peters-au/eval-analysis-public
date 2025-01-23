@@ -52,23 +52,10 @@ jobs:
           poetry install
           echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
 
-      - name: Configure SSH
-        run: |-
-          eval `ssh-agent -s`
-          ssh-add - <<< "${{ secrets.TASK_META_DEPLOY_KEY }}"
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> $GITHUB_ENV
-          echo "SSH_AGENT_PID=${SSH_AGENT_PID}" >> $GITHUB_ENV
-
       - name: Configure DVC
         run: |-
           dvc remote modify --local s3 access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           dvc remote modify --local s3 secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-
-          dvc remote add --global task-meta-s3 s3://production-task-meta
-          dvc remote modify --global task-meta-s3 access_key_id "${{ secrets.TASK_META_AWS_ACCESS_KEY_ID }}"
-          dvc remote modify --global task-meta-s3 secret_access_key "${{ secrets.TASK_META_AWS_SECRET_ACCESS_KEY }}"
 
       - name: Run tests
         run: |
@@ -93,23 +80,10 @@ jobs:
           poetry install
           echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
 
-      - name: Configure SSH
-        run: |-
-          eval `ssh-agent -s`
-          ssh-add - <<< "${{ secrets.TASK_META_DEPLOY_KEY }}"
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> $GITHUB_ENV
-          echo "SSH_AGENT_PID=${SSH_AGENT_PID}" >> $GITHUB_ENV
-
       - name: Configure DVC
         run: |-
           dvc remote modify --local s3 access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           dvc remote modify --local s3 secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-
-          dvc remote add --global task-meta-s3 s3://production-task-meta
-          dvc remote modify --global task-meta-s3 access_key_id "${{ secrets.TASK_META_AWS_ACCESS_KEY_ID }}"
-          dvc remote modify --global task-meta-s3 secret_access_key "${{ secrets.TASK_META_AWS_SECRET_ACCESS_KEY }}"
 
       - name: Run check pipelines
         run: |-
