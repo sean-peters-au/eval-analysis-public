@@ -52,6 +52,11 @@ jobs:
           poetry install
           echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
 
+      - name: Configure DVC
+        run: |-
+          dvc remote modify --local s3 access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          dvc remote modify --local s3 secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
       - name: Run tests
         run: |
           poetry run pytest -vv tests/ --capture=no
@@ -74,6 +79,11 @@ jobs:
         run: |-
           poetry install
           echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
+
+      - name: Configure DVC
+        run: |-
+          dvc remote modify --local s3 access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          dvc remote modify --local s3 secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
       - name: Run check pipelines
         run: |-
