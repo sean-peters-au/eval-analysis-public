@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Poetry
         run: pipx install poetry==1.8.3
@@ -38,6 +41,9 @@ jobs:
 
       - name: Fetch data and commit back to repo
         run: |-
+
+          git status
+
           dvc get --force git@github.com:METR/eval-pipeline public/data/external/all_runs.jsonl -o data/external/all_runs.jsonl --remote-config access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }} secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
           if git diff --name-only --exit-code
