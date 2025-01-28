@@ -53,4 +53,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git commit -am "Update data from eval-pipeline"
           echo "Pushing..."
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin
