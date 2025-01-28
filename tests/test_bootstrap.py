@@ -1,11 +1,9 @@
 # %%
-from collections import Counter, defaultdict
-
+import pytest
 import numpy as np
 import pandas as pd
-import pytest
-
 from src.wrangle.bootstrap import bootstrap_sample
+from collections import Counter, defaultdict
 
 
 def generate_synthetic_data(n_samples: int, seed: int) -> pd.DataFrame:
@@ -165,11 +163,15 @@ def test_num_dropped_groups() -> None:
     After the first level, we shouldn't drop any top-level groups by dropping their subcategories.
     So the fraction dropped should be 1/e.
     """
+
+    size = 4000
+    fudge_factor = 100
+
     data = pd.DataFrame(
         {
-            "l1": np.arange(1000),
-            "l2": np.arange(1000),
-            "l3": np.arange(1000),
+            "l1": np.arange(size),
+            "l2": np.arange(size),
+            "l3": np.arange(size),
         }
     )
 
@@ -178,14 +180,18 @@ def test_num_dropped_groups() -> None:
     one_level_uniques = one_level_result.l1.nunique()
     three_level_uniques = three_level_result.l3.nunique()
 
-    reference_uniques = 1000 * (1 - 1 / np.e)
+    reference_uniques = size * (1 - 1 / np.e)
 
     assert (
-        reference_uniques - 30 < one_level_uniques < reference_uniques + 30
+        reference_uniques - fudge_factor
+        < one_level_uniques
+        < reference_uniques + fudge_factor
     ), f"1-level bootstrapping should keep about {reference_uniques} groups; actual {one_level_uniques}"
 
     assert (
-        reference_uniques - 30 < three_level_uniques < reference_uniques + 30
+        reference_uniques - fudge_factor
+        < three_level_uniques
+        < reference_uniques + fudge_factor
     ), f"3-level bootstrapping should keep about {reference_uniques} groups; actual {three_level_uniques}"
 
 
