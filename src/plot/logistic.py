@@ -3,69 +3,40 @@ from __future__ import annotations
 import argparse
 import logging
 import pathlib
-from typing import Any, cast
+from typing import Any, Callable, cast
 
+import dvc.api
 import matplotlib.axes
 import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 import yaml
+from matplotlib import markers
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.dates import date2num, num2date
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
-from scipy.optimize import Bounds, curve_fit
 from sklearn.linear_model import LinearRegression
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal
 
 import src.utils.plots
+from src.utils.plots import ScriptParams, TrendlineParams
 
 
-class TrendlineStyling(TypedDict):
-    linewidth: float
-    alpha: float
-    linestyle: str
-
-
-class TrendlineParams(TypedDict):
-    fit_type: Literal["auto", "default", "exponential", "linear"]
-    after_date: str
-    color: str
-    line_start_date: str | None
-    line_end_date: str | None
-    display_r_squared: bool
-    data_file: str | None
-    styling: TrendlineStyling | None
-    caption: str | None
-    skip_annotation: bool
-
-
-class ScriptParams(TypedDict):
-    parameter_group_name: str
-    lower_y_lim: float
-    upper_y_lim: float
-    exclude: list[str]
-    title: str
-    subtitle: str
-    weighting: str
-    include_task_distribution: str
-    weight_key: str | None
-    trendlines: list[TrendlineParams]
-    exclude_agents: list[str]
-
-
-def _get_title(script_params: ScriptParams) -> str:
+def _get_title(script_params: ScriptParams, success_percent: int) -> str:
     # Get included task groups
-    task_group_names = ["General Autonomy", "SWAA", "RE-Bench"]
+    if "title" in script_params:
+        return script_params["title"]
+    task_group_names = ["HCAST", "SWAA", "RE-Bench"]
     included_task_groups = []
     for name in task_group_names:
         if name not in script_params["exclude"]:
             included_task_groups.append(name)
 
     # Make title
-    task_groups_string = "+ ".join(included_task_groups)
-    title = f"Time Horizon for {task_groups_string} Tasks"
+    task_groups_string = " + ".join(included_task_groups)
+    title = f"{success_percent}% Time Horizon for {task_groups_string} Tasks"
     return title
 
 
@@ -175,10 +146,14 @@ def plot_horizon_graph(
     title: str,
     weight_key: str,
     exclude_agents: list[str],
+    success_percent: int,
+    script_params: ScriptParams | None = None,
     trendlines: list[TrendlineParams] | None = None,
     upper_y_lim: float | None = None,
     include_task_distribution: str = "none",
     fig: Figure | None = None,
+    y_scale: Literal["log", "linear"] = "log",
+    confidence_level: float = 0.95,
 ) -> None:
     plot_style = plot_params["scatter_styling"]
     agent_style = plot_params["agent_styling"]
@@ -199,87 +174,60 @@ def plot_horizon_graph(
 
     ax.set_ylim(lower_y_lim, upper_y_lim)
 
-    agent_summaries["50%_clipped"] = agent_summaries["50%"].clip(
+    y = agent_summaries[f"p{success_percent}"]
+    y_clipped = y.clip(
         # np.finfo(float).eps, np.inf
-        lower_y_lim * 1.5,
+        lower_y_lim * 1,
         np.inf,
     )  # clip because log scale makes 0 -> -inf
 
-    agent_summaries.loc[:, "50_low"].clip(1 / 60, np.inf)
-    agent_summaries.loc[:, "50_high"].clip(1 / 60, np.inf)
-    y = agent_summaries["50%"]
-    yerr = np.array(
-        [y - agent_summaries.loc[:, "50_low"], agent_summaries.loc[:, "50_high"] - y]
-    )
+    low_q = (1 - confidence_level) / 2
+    high_q = 1 - low_q
+    y_low = agent_summaries[f"p{success_percent}q{low_q:.3f}"]
+    y_high = agent_summaries[f"p{success_percent}q{high_q:.3f}"]
+
+    yerr = np.array([y - y_low, y_high - y])
     yerr = np.clip(yerr, 0, np.inf)
+
     legend_labels = []
     legend_handles = []
 
     for i, agent in enumerate(agent_summaries["agent"]):
+        if y_clipped.iloc[i] <= lower_y_lim or y_clipped.iloc[i] >= upper_y_lim:
+            continue
         ax.errorbar(
             agent_summaries["release_date"].iloc[i],
-            agent_summaries["50%_clipped"].iloc[i],
+            y_clipped.iloc[i],
             yerr=[[yerr[0, i]], [yerr[1, i]]],
             **plot_style["error_bar"],
         )
         ax.grid(**plot_style["grid"])
         scatter_handle = ax.scatter(
             agent_summaries["release_date"].iloc[i],
-            agent_summaries["50%_clipped"].iloc[i],
+            y_clipped.iloc[i],
             color=agent_style[agent]["lab_color"],
             marker=agent_style[agent]["marker"],
             label=agent,
             **plot_style["scatter"],
         )
 
-        # If it is actually in the bounds of the plot, add to legend
-        if (
-            agent_summaries["50%_clipped"].iloc[i] > lower_y_lim
-            and agent_summaries["50%_clipped"].iloc[i] < upper_y_lim
-        ):
-            legend_labels.append(agent)
-            legend_handles.append(scatter_handle)
+        legend_labels.append(agent)
+        legend_handles.append(scatter_handle)
 
     # Add arrows for out-of-range points
-    mask_out_range = agent_summaries["50%_clipped"] != y
+    mask_out_range = y_clipped != y
     logging.info(f"masking out {mask_out_range.sum()} points")
     ax.scatter(
         agent_summaries.loc[mask_out_range, "release_date"],
         [lower_y_lim * 1.2] * mask_out_range.sum(),  # Place at bottom of visible range
-        marker="v",  # type: ignore
-        color="black",
+        marker=markers.CARETDOWN,  # type: ignore
+        color="grey",
+        zorder=10,
+        s=150,  # Increase marker size
     )
 
     annotations = []
-    # color_cycle = ["blue", "red", "green"]
-    # if trendlines:
-    #     if pd.Timestamp(after_date) < pd.Timestamp("2023-01-01"):
-    #         annotations.append(
-    #             plot_trendline(
-    #                 ax,
-    #                 agent_summaries,
-    #                 plot_params,
-    #                 fit_type="auto",
-    #                 after="2024-01-01",
-    #                 fit_color=color_cycle[1],
-    #                 log_scale=True,
-    #                 line_start_date="2023-07-01",
-    #                 line_end_date="2025-04-01",
-    #             )
-    #         )
-    #     annotations.append(
-    #         plot_trendline(
-    #             ax,
-    #             agent_summaries,
-    #             plot_params,
-    #             fit_type="auto",
-    #             after=after_date,
-    #             fit_color=color_cycle[0],
-    #             log_scale=True,
-    #             line_start_date="2023-07-01",
-    #             line_end_date="2025-04-01",
-    #         )
-    #     )
+
     for trendline in trendlines:
         if trendline["fit_type"] == "linear":
             log_scale = False
@@ -291,45 +239,31 @@ def plot_horizon_graph(
         if trendline["data_file"] is not None:
             data_file = trendline["data_file"]
             data = pd.read_csv(data_file)
-            data = _process_agent_summaries(exclude_agents, data, release_dates)
         else:
             data = agent_summaries
+        data = _process_agent_summaries(
+            exclude_agents, data, release_dates, after_date=trendline["after_date"]
+        )
 
-        reg, score = fit_trendline(data, trendline["after_date"], log_scale)
+        print(f"fitting on {len(data)} models")
+        trendline_success_percent = trendline.get("success_percent", success_percent)
+        reg, score = fit_trendline(
+            data[f"p{trendline_success_percent}"],
+            pd.to_datetime(data["release_date"]),
+            log_scale=log_scale,
+        )
+        dashed_outside = (data["release_date"].min(), data["release_date"].max())
         annotations.append(
             plot_trendline(
                 ax,
-                data,
                 plot_params,
-                fit_type=trendline["fit_type"],
-                after=trendline["after_date"],
+                trendline_params=trendline,
+                dashed_outside=dashed_outside,
                 reg=reg,
                 score=score,
                 log_scale=log_scale,
-                fit_color=trendline["color"],
-                line_start_date=trendline["line_start_date"],
-                line_end_date=trendline["line_end_date"],
-                display_r_squared=trendline["display_r_squared"],
-                caption=trendline["caption"],
-                styling=trendline["styling"],
-                skip_annotation=trendline["skip_annotation"],
             )
         )
-
-        # if pd.Timestamp(after_date) < pd.Timestamp("2023-01-01"):
-        #     annotations.append(
-        #         plot_trendline(
-        #             ax,
-        #             agent_summaries,
-        #             plot_params,
-        #             fit_type="auto",
-        #             after=after_date,
-        #             log_scale=False,
-        #         )
-        #     )
-        # annotations.append(
-        #     plot_trendline_hyperbolic(ax, agent_summaries, after=after_date)
-        # )
 
     if include_task_distribution != "none":
         assert ax_hist is not None
@@ -349,44 +283,59 @@ def plot_horizon_graph(
         # y limits are determined by the main plot
         ax_hist.set_ylim(ax.get_ylim())
 
-    src.utils.plots.log_y_axis(ax)
+    src.utils.plots.make_y_axis(ax, scale=y_scale, script_params=script_params)
+    start_year = pd.Timestamp(x_lim_start).year
+    end_year = pd.Timestamp(x_lim_end).year + 1
+    xticks_skip = script_params.get("xticks_skip", 1) if script_params else 1
+    src.utils.plots.make_quarterly_xticks(ax, start_year, end_year, skip=xticks_skip)
+
     ax.set_xlim(
         float(mdates.date2num(pd.Timestamp(x_lim_start))),
         float(mdates.date2num(pd.Timestamp(x_lim_end))),
     )
-    start_year = pd.Timestamp(num2date(ax.get_xlim()[0])).year + 1
-    end_year = pd.Timestamp(num2date(ax.get_xlim()[1])).year + 1
-
-    major_ticks = np.array(
-        [pd.Timestamp(f"{y}-01-01") for y in range(start_year, end_year)]
-    )
-    minor_ticks = np.array(
-        [
-            pd.Timestamp(f"{y}-{m:02d}-01")
-            for y in range(start_year, end_year)
-            for m in [4, 7, 10]
-        ]
-    )
-
-    ax.set_xticks(major_ticks)
-    ax.set_xticklabels([x.strftime("%Y-%m") for x in major_ticks])
-    ax.set_xticks(minor_ticks, minor=True)
 
     ax.set_xlabel(
-        "Release Date",
-        fontsize=plot_params["ax_label_fontsize"],
+        cast(
+            str,
+            script_params.get("xlabel", "Model release date")
+            if script_params
+            else "Model release date",
+        ),
+        fontsize=script_params.get(
+            "ax_label_fontsize", plot_params["ax_label_fontsize"]
+        )
+        if script_params
+        else plot_params["ax_label_fontsize"],
         labelpad=plot_params["xlabelpad"],
     )
     ax.set_ylabel(
-        "Human time-to-complete @\n50% chance of model success",
-        fontsize=plot_params["ax_label_fontsize"],
+        cast(
+            str,
+            script_params.get(
+                "ylabel",
+                f"Task time (for humans) that model completes with \n{success_percent}% success rate",
+            )
+            if script_params
+            else f"Task time (for humans) that model completes with \n{success_percent}% success rate",
+        ),
+        fontsize=script_params.get(
+            "ax_label_fontsize", plot_params["ax_label_fontsize"]
+        )
+        if script_params
+        else plot_params["ax_label_fontsize"],
         labelpad=plot_params["ylabelpad"],
     )
     ax.set_title(
-        f"{title}\n{subtitle}",
-        fontsize=plot_params["title_fontsize"],
-        pad=plot_params["xlabelpad"],
+        title,
+        fontsize=script_params.get("title_fontsize", plot_params["title_fontsize"])
+        if script_params
+        else plot_params["title_fontsize"],
+        pad=3 * plot_params["xlabelpad"],
     )
+    if subtitle:
+        plt.suptitle(
+            subtitle, y=0.93, x=0.51, fontsize=plot_params["suptitle_fontsize"]
+        )
 
     # The graph is too busy if we have both trendlines and legend
     # if not trendlines:
@@ -394,7 +343,6 @@ def plot_horizon_graph(
     available_agents = [
         agent for agent in plot_params["legend_order"] if agent in legend_labels
     ]
-
     # Sort handles and labels based on the filtered order
     sorted_pairs = sorted(
         zip(legend_handles, legend_labels),
@@ -406,12 +354,12 @@ def plot_horizon_graph(
         legend_handles,
         legend_labels,
         loc="best",
-        fontsize=10,
+        fontsize=script_params.get("legend_fontsize", 12) if script_params else 12,
     )
 
     # Lay the annotations we collected earlier, ensuring they don't overlap
     padding = 10
-    line_height = 12
+    line_height = plot_params["annotation_fontsize"]
     bbox = ax.get_window_extent()
     y = (
         (bbox.y1 - bbox.y0) * 72 / fig.dpi
@@ -433,58 +381,67 @@ def plot_horizon_graph(
 
 
 def fit_trendline(
-    agent_summaries: pd.DataFrame,
-    after: str,
+    agent_horizons: pd.Series[float],
+    release_dates: pd.Series[pd.Timestamp],
     log_scale: bool = False,
-    method: str = "OLS",
 ) -> tuple[LinearRegression, float]:
-    """Plot a trendline showing the relationship between release date and time horizon."""
-    agent_summaries = agent_summaries.sort_values("release_date")
-    mask = agent_summaries["release_date"] >= pd.Timestamp(after).date()
+    """Fit a trendline showing the relationship between release date and time horizon.
 
-    dates = pd.to_datetime(agent_summaries["release_date"])
-    X = np.array([date2num(d) for d in dates]).reshape(-1, 1)
-    y_raw = agent_summaries["50%"].clip(1e-3, np.inf)
+    Args:
+        agent_horizons: Series containing the time horizons for each agent
+        release_dates: Series containing the release dates for each agent
+        log_scale: Whether to fit in log space (exponential fit) or linear space
+
+    Returns:
+        A tuple containing the fitted LinearRegression model and the R^2 score
+    """
+    # Convert dates to numeric format for regression
+    X = np.array([date2num(d) for d in release_dates]).reshape(-1, 1)
+
+    y_raw = agent_horizons.clip(1e-3, np.inf)
     y = np.log(y_raw) if log_scale else y_raw
 
-    X = X[mask]
-    y = y[mask]
-    if method == "WLS":
-        spread = np.log(agent_summaries["50_high"]) - np.log(agent_summaries["50_low"])
-        weights = 1 / (spread**2 + 1e-6)
-        # replace nan with 0
-        weights = np.nan_to_num(weights)[mask]
-    else:
-        weights = None
-    reg = LinearRegression().fit(X, y, sample_weight=weights)
+    # Fit the regression model
+    reg = LinearRegression().fit(X, y)
 
     score = float(reg.score(X, y))
 
     return reg, score
 
 
+class FitFunctionWrapper:
+    def __init__(self, func: Callable[..., NDArray[Any]], params: list[Any]):
+        self.func = func
+        self.params = params
+
+    def predict(self, x: NDArray[Any]) -> NDArray[Any]:
+        return self.func(x, *self.params)
+
+
 def plot_trendline(
     ax: Axes,
-    agent_summaries: pd.DataFrame,
     plot_params: src.utils.plots.PlotParams,
-    after: str,
-    reg: LinearRegression,
+    trendline_params: TrendlineParams,
+    dashed_outside: tuple[pd.Timestamp, pd.Timestamp] | None,
+    reg: LinearRegression | FitFunctionWrapper,
     score: float,
     log_scale: bool = False,
     method: str = "OLS",
-    annotate: bool = True,
-    fit_color: str | None = None,
-    fit_type: Literal["auto", "default", "exponential", "linear"] = "default",
     plot_kwargs: dict[str, Any] = {},
-    line_start_date: str | None = None,
-    line_end_date: str | None = None,
-    display_r_squared: bool = True,
-    caption: str | None = None,
-    styling: TrendlineStyling | None = None,
-    skip_annotation: bool = False,
 ) -> dict[str, Any] | float | None:
     """Plot a trendline showing the relationship between release date and time horizon."""
     trendline_styling = plot_params["performance_over_time_trendline_styling"]
+
+    # Extract values from trendline_params
+    after = trendline_params["after_date"]
+    fit_color = trendline_params.get("color", None)
+    line_start_date = trendline_params.get("line_start_date", None)
+    line_end_date = trendline_params["line_end_date"]
+    display_r_squared = trendline_params.get("display_r_squared", False)
+    caption = trendline_params.get("caption", None)
+    styling = trendline_params.get("styling", None)
+    skip_annotation = trendline_params.get("skip_annotation", False)
+    fit_type = trendline_params["fit_type"]
 
     # trendline goes to the end of the x-axis
     start_date = (
@@ -492,14 +449,7 @@ def plot_trendline(
         if line_start_date is None
         else pd.Timestamp(line_start_date)
     )
-    end_date = (
-        pd.Timestamp(after) if line_end_date is None else pd.Timestamp(line_end_date)
-    )
-    x_range = np.linspace(date2num(start_date), date2num(end_date), 20)
-    y_pred = reg.predict(x_range.reshape(-1, 1))
-
-    x_dates = [num2date(x) for x in x_range]
-    y_values = np.exp(y_pred) if log_scale else y_pred  # Convert back from log scale
+    end_date = pd.Timestamp(line_end_date)
 
     if fit_type == "auto":
         fit_type = "exponential" if log_scale else "linear"
@@ -515,27 +465,49 @@ def plot_trendline(
     } | plot_kwargs
     if styling is not None:
         pk.update(styling)
-    ax.plot(x_dates, y_values, **pk)
 
-    doubling_time = 1 / reg.coef_[0] * np.log(2) if log_scale else None
-    if not annotate:
-        return doubling_time
+    x_range = np.linspace(date2num(start_date), date2num(end_date), 120)
+    y_pred = reg.predict(x_range.reshape(-1, 1))
+
+    x_dates = np.array(num2date(x_range))
+    y_values = np.exp(y_pred) if log_scale else y_pred  # Convert back from log scale
+
+    if dashed_outside is None:
+        ax.plot(x_dates, y_values, **pk)
+    else:
+        dashed_masks = [
+            date2num(x_dates) < date2num(dashed_outside[0]),
+            date2num(x_dates) > date2num(dashed_outside[1]),
+        ]
+
+        undashed_mask = np.logical_not(np.logical_or.reduce(dashed_masks))
+
+        for mask in dashed_masks:
+            ax.plot(
+                x_dates[mask],
+                y_values[mask],
+                **(pk | {"linestyle": "dashed", "alpha": 0.4}),
+            )
+        ax.plot(x_dates[undashed_mask], y_values[undashed_mask], **pk)
 
     if caption is None:
-        caption = f"{fit_type.title()} fit"
+        caption = ""
 
     if skip_annotation:
         return None
     annotation = caption
-    if display_r_squared:
-        annotation += f"\nr^2: {score:.2f}"
-    if log_scale and doubling_time is not None:
-        annotation += f"\n(Doubling time: {doubling_time:.0f} days)"
+    if fit_type == "exponential":
+        assert isinstance(reg, LinearRegression)
+        doubling_time = 1 / reg.coef_[0] * np.log(2)
+        annotation += f"\nDoubling time: {doubling_time:.0f} days"
         annotation += "\n" + ("All data" if after == "0000-00-00" else f"{after}+ data")
-    else:
-        annotation += f"\n(Rate: +{reg.coef_[0]*365:.0f} minutes per year)"
+    if display_r_squared:
+        annotation += f"\nR²: {score:.2f}"
 
-    annotation_styling = trendline_styling[fit_type]["annotation"]
+    annotation_styling = {
+        "color": fit_color,
+        "fontsize": plot_params["annotation_fontsize"],
+    }
     annotation_styling["color"] = fit_color
     return dict(
         text=annotation,
@@ -545,84 +517,23 @@ def plot_trendline(
     )
 
 
-def plot_trendline_hyperbolic(
-    ax: matplotlib.axes.Axes, agent_summaries: pd.DataFrame, after: str
-) -> dict[str, Any]:
-    """Plot a trendline showing the relationship between release date and time horizon."""
-
-    def hyperbolic_func(
-        x: NDArray[Any], a: NDArray[Any], t_agi: NDArray[Any]
-    ) -> NDArray[Any]:
-        """
-        Tries to fit the y value in log space
-        """
-        return np.log(a / (t_agi - x))
-
-    log_scale = True
-    agent_summaries = agent_summaries.sort_values("release_date")
-    mask = agent_summaries["release_date"] >= pd.Timestamp(after).date()
-    # Convert release dates to numeric (days since first release)
-    dates = pd.to_datetime(agent_summaries["release_date"])
-    first_release = min(dates)
-    days_since_release = (dates - first_release).dt.days
-
-    # Fit linear regression
-    X = (cast(NDArray[Any], days_since_release.values)).reshape(-1, 1)
-    y_raw = agent_summaries["50%"].clip(np.finfo(float).eps.astype(float), np.inf)
-    y = np.log(y_raw) if log_scale else y_raw
-    X = X[mask]
-    y = y[mask]
-
-    bounds = Bounds([0, max(X)[0]], [np.inf, np.inf])  # type: ignore[reportArgumentType]
-    params, _ = curve_fit(
-        hyperbolic_func, X.flatten(), y, bounds=bounds, p0=[5, 365 * 5.0]
-    )
-
-    # get r^2
-    residuals = y - hyperbolic_func(X.flatten(), *params)
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)  # type: ignore[reportOperatorIssue]
-    r_squared = 1 - (ss_res / ss_tot)
-
-    # Generate points for trendline, 20 equally spaced
-    # x_range = np.array([min(X)[0], max(X)[0]])
-    x_range = np.linspace(min(X)[0], max(X)[0], 20)
-    y_pred = hyperbolic_func(x_range, params[0], params[1])
-
-    # Convert back to datetime for plotting
-    x_dates = [first_release + pd.Timedelta(days=x) for x in x_range]
-    y_values = np.exp(y_pred) if log_scale else y_pred  # Convert back from log scale
-
-    # print(f"x_dates: {x_dates}")
-    # print(f"y_values: {y_values}")
-
-    fit_color = "green"
-
-    # Plot trendline
-    ax.plot(x_dates, y_values, "--", color=fit_color, alpha=0.5)  # type: ignore[reportArgumentType]
-    fit_type = "Hyperbolic"
-    annotation = f"{fit_type} fit\nr^2: {r_squared:.2f}"
-    t_agi = params[1]
-    # convert to date
-    t_agi = first_release + pd.Timedelta(days=t_agi)
-    annotation += f"\n(T_agi: {t_agi:%Y-%m-%d})"
-
-    return dict(
-        text=annotation,
-        color=fit_color,
-        transform=ax.get_xaxis_transform(),
-    )
-
-
 def _process_agent_summaries(
-    exclude_agents: list[str] | None, agent_summaries: pd.DataFrame, release_dates: Any
+    exclude_agents: list[str] | None,
+    agent_summaries: pd.DataFrame,
+    release_dates: Any,
+    after_date: str | None = None,
 ) -> pd.DataFrame:
     agent_summaries["release_date"] = agent_summaries["agent"].map(
         release_dates["date"]
     )
+    agent_summaries = agent_summaries[agent_summaries["agent"] != "human"]
     if exclude_agents is not None:
         agent_summaries = agent_summaries[
             ~agent_summaries["agent"].isin(exclude_agents)
+        ]
+    if after_date is not None:
+        agent_summaries = agent_summaries[
+            agent_summaries["release_date"] >= pd.Timestamp(after_date).date()
         ]
     return agent_summaries
 
@@ -635,14 +546,13 @@ def main() -> None:
     parser.add_argument("--runs-file", type=pathlib.Path, required=False)
     parser.add_argument("--release-dates", type=pathlib.Path, required=False)
     parser.add_argument("--script-parameter-group", type=str, required=True)
-    parser.add_argument("--params-file", type=pathlib.Path, required=True)
     args = parser.parse_args()
 
     logging.basicConfig(
         level=args.log_level.upper(),
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
-    params = yaml.safe_load(args.params_file.read_text())
+    params = dvc.api.params_show(stages="plot_logistic_regression", deps=True)
     fig_params = params["figs"]["plot_logistic_regression"][args.script_parameter_group]
 
     agent_summaries = pd.read_csv(args.input_file)
@@ -653,19 +563,11 @@ def main() -> None:
 
     logging.info("Loaded input data")
 
-    possible_weightings = params["weighting"]
-    for possible_weighting in possible_weightings:
-        if possible_weighting["weight_col"] == fig_params["weighting"]:
-            weighting = possible_weighting
-            break
-    else:
-        raise ValueError(f"Weighting {fig_params['weighting']} not found")
-    subtitle = weighting["graph_snippet"]
-
     runs_df = pd.read_json(args.runs_file, lines=True)
     runs_df = _remove_excluded_task_groups(runs_df, fig_params)
 
-    title = _get_title(fig_params)
+    title = _get_title(fig_params, fig_params.get("success_percent", 50))
+    subtitle = fig_params.get("subtitle", "")
 
     plot_horizon_graph(
         params["plots"],
@@ -679,14 +581,15 @@ def main() -> None:
         x_lim_start=fig_params["x_lim_start"],
         x_lim_end=fig_params["x_lim_end"],
         include_task_distribution=fig_params["include_task_distribution"],
-        weight_key=weighting["weight_col"],
+        weight_key=fig_params["weighting"],
         trendlines=fig_params["trendlines"],
         exclude_agents=fig_params["exclude_agents"],
+        success_percent=fig_params.get("success_percent", 50),
+        script_params=fig_params,
     )
 
     src.utils.plots.save_or_open_plot(args.output_file, params["plot_format"])
 
 
 if __name__ == "__main__":
-    main()
     main()
