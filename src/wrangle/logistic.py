@@ -92,7 +92,7 @@ def agent_regression(
         empirical_rates, average = empirical_success_rates(x, y, time_buckets, weights)
 
     # Build indices based on success_percents
-    indices = ["coefficient", "intercept", "bce_loss", "average"]
+    indices = ["coefficient", "intercept", "bce_loss", "r_squared", "average"]
     low_q = (1 - confidence_level) / 2
     high_q = 1 - low_q
     for p in success_percents:
@@ -104,6 +104,7 @@ def agent_regression(
             -np.inf,  # coefficient
             0,  # intercept
             0,  # bce_loss
+            0,  # r_squared
             0,  # average
         ]
         for _ in success_percents:
@@ -119,11 +120,31 @@ def agent_regression(
     if model.coef_[0][0] > 0:
         logging.warning(f"Warning: {agent_name} has positive slope {model.coef_[0][0]}")
 
+    # Calculate McFadden's pseudo-R²
+    # Full model log-likelihood
+    y_pred_proba = model.predict_proba(x)[:, 1]
+    epsilon = 1e-15  # Avoid log(0)
+    y_pred_proba = np.clip(y_pred_proba, epsilon, 1 - epsilon)
+    log_likelihood_full = np.sum(weights * (y * np.log(y_pred_proba) + (1 - y) * np.log(1 - y_pred_proba)))
+    
+    # Null model log-likelihood (intercept-only model)
+    # The null model predicts the weighted average probability for all observations
+    weighted_mean_y = np.average(y, weights=weights)
+    weighted_mean_y = np.clip(weighted_mean_y, epsilon, 1 - epsilon)
+    log_likelihood_null = np.sum(weights * (y * np.log(weighted_mean_y) + (1 - y) * np.log(1 - weighted_mean_y)))
+    
+    # McFadden's R² = 1 - (log_likelihood_full / log_likelihood_null)
+    if log_likelihood_null != 0:
+        mcfadden_r_squared = 1 - (log_likelihood_full / log_likelihood_null)
+    else:
+        mcfadden_r_squared = 0.0
+
     # Calculate metrics
     values = [
         model.coef_[0][0],
         model.intercept_[0],  # type: ignore
         get_bce_loss(x, y, model, weights),
+        mcfadden_r_squared,
         float("nan") if not include_empirical_rates else average,
     ]
 

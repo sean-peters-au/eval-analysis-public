@@ -277,8 +277,10 @@ def plot_logistic_regression_on_histogram(
                 ymax=0.5,
             )
             if script_params["annotate_p50"]:
+                # Get R² value for this agent
+                r_squared = agent_info.iloc[0].get("r_squared", 0.0)
                 axes[idx].annotate(
-                    f"Time Horizon:\n{format_time_label(p50_line_x * 60)}",
+                    f"Time Horizon:\n{format_time_label(p50_line_x * 60)}\nρ²: {r_squared:.3f}",
                     (40 * 60, 0.5),
                     textcoords="offset points",
                     xytext=(0, 10),
@@ -290,8 +292,10 @@ def plot_logistic_regression_on_histogram(
         else:
             if p50_line_x < all_agents_min_time:
                 if script_params["annotate_p50"]:
+                    # Get R² value for this agent
+                    r_squared = agent_info.iloc[0].get("r_squared", 0.0)
                     axes[idx].annotate(
-                        f"Time horizon:\n< {format_time_label(all_agents_min_time * 60)}",
+                        f"Time horizon:\n< {format_time_label(all_agents_min_time * 60)}\nρ²: {r_squared:.3f}",
                         (40 * 60, 0.5),
                         textcoords="offset points",
                         xytext=(0, 10),
